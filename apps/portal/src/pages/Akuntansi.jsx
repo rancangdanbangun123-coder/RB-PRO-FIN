@@ -263,7 +263,7 @@ export default function Akuntansi() {
                                                 <p className={`font-bold ${trx.type === 'in' ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-white'}`}>
                                                     {trx.type === 'in' ? '+' : '-'}{formatCurrency(trx.amount)}
                                                 </p>
-                                                <p className="text-xs text-slate-500 mt-0.5">{trx.account}</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">{trx.projectId && trx.projectId !== 'all' ? (PROJECT_DATA.find(p => p.id === trx.projectId)?.name || trx.projectId) : 'Semua Proyek'}</p>
                                             </div>
                                             <button
                                                 onClick={(e) => {
