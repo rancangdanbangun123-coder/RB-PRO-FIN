@@ -288,7 +288,7 @@ export default function Subkontraktor() {
                         <div className="flex items-center justify-between">
                             <h2 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                                 <span className="material-icons text-primary text-sm">analytics</span>
-                                Ringkasan Biaya 2026
+                                Ringkasan Biaya
                             </h2>
                             <div className="flex items-center gap-2">
                                 <select className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 text-sm rounded-lg px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:border-primary focus:ring-1 focus:ring-primary outline-none shadow-sm">
