@@ -313,72 +313,92 @@ export default function Subkontraktor() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-600 dark:text-slate-300">
-                                        <tr className="bg-slate-50/50 dark:bg-slate-800/30">
-                                            <td className="px-4 py-2 font-semibold text-primary text-xs tracking-wide" colSpan="5">
-                                                <span className="material-icons text-xs align-middle mr-1">person</span> PM: Pram
-                                            </td>
-                                        </tr>
-                                        <tr
-                                            onClick={() => setSelectedSubcon(subcons[2] || subcons[0] || null)}
-                                            className={`cursor-pointer transition-colors ${selectedSubcon?.id === (subcons[2]?.id || '') ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-transparent'}`}
-                                        >
-                                            <td className="px-4 py-2 pl-8 font-medium">PT Beton Jaya Abadi</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-slate-900 dark:text-slate-200">Rp 1.250.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-green-600 dark:text-green-400">Rp 950.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-amber-600 dark:text-amber-400">Rp 300.000.000</td>
-                                            <td className="px-4 py-2 text-center">
-                                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                                                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: '76%' }}></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr
-                                            onClick={() => setSelectedSubcon(subcons[1] || subcons[0] || null)}
-                                            className={`cursor-pointer transition-colors ${selectedSubcon?.id === (subcons[1]?.id || '') ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-transparent'}`}
-                                        >
-                                            <td className="px-4 py-2 pl-8 font-medium">CV Baja Makmur</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-slate-900 dark:text-slate-200">Rp 450.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-green-600 dark:text-green-400">Rp 100.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-amber-600 dark:text-amber-400">Rp 350.000.000</td>
-                                            <td className="px-4 py-2 text-center">
-                                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                                                    <div className="bg-primary h-1.5 rounded-full" style={{ width: '22%' }}></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="bg-slate-50/50 dark:bg-slate-800/30">
-                                            <td className="px-4 py-2 font-semibold text-primary text-xs tracking-wide" colSpan="5">
-                                                <span className="material-icons text-xs align-middle mr-1">person</span> PM: Aldo
-                                            </td>
-                                        </tr>
-                                        <tr
-                                            onClick={() => setSelectedSubcon(subcons[0] || null)}
-                                            className={`cursor-pointer transition-colors ${selectedSubcon?.id === (subcons[0]?.id || '') ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-transparent'}`}
-                                        >
-                                            <td className="px-4 py-2 pl-8 font-medium text-slate-900 dark:text-white">PT Semen Nusantara</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-slate-600 dark:text-slate-200">Rp 2.800.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-green-600 dark:text-green-400">Rp 2.100.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-amber-600 dark:text-amber-400">Rp 700.000.000</td>
-                                            <td className="px-4 py-2 text-center">
-                                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                                                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: '75%' }}></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr
-                                            onClick={() => setSelectedSubcon(subcons[4] || subcons[0] || null)}
-                                            className={`cursor-pointer transition-colors ${selectedSubcon?.id === (subcons[4]?.id || '') ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-transparent'}`}
-                                        >
-                                            <td className="px-4 py-2 pl-8 font-medium">CV Elektrikal Prima</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-slate-900 dark:text-slate-200">Rp 320.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-green-600 dark:text-green-400">Rp 320.000.000</td>
-                                            <td className="px-4 py-2 text-right font-medium text-xs text-slate-400 dark:text-amber-400">Rp 0</td>
-                                            <td className="px-4 py-2 text-center">
-                                                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
-                                                    <div className="bg-blue-400 h-1.5 rounded-full" style={{ width: '0%' }}></div>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        {(() => {
+                                            const outTrxs = transactions.filter(t => t.type === 'out' && t.payee);
+                                            const pmGroups = {};
+
+                                            // Determine valid subcon names from our db to filter out random transactions
+                                            const validSubconNames = subcons.map(s => s.name?.toLowerCase());
+
+                                            outTrxs.forEach(t => {
+                                                const pm = t.createdBy || 'Sistem';
+                                                const subconName = t.payee;
+
+                                                // Only include if the payee is actually a recognized subcon
+                                                if (!validSubconNames.includes(subconName.toLowerCase())) return;
+
+                                                if (!pmGroups[pm]) pmGroups[pm] = {};
+                                                if (!pmGroups[pm][subconName]) {
+                                                    const matchedSubcon = subcons.find(s => s.name?.toLowerCase() === subconName.toLowerCase());
+
+                                                    // Fallback mock contract values to keep UI looking good for demo purposes
+                                                    let totalKontrakMock = 50000000;
+                                                    if (matchedSubcon?.name === 'PT Beton Jaya Abadi') totalKontrakMock = 1250000000;
+                                                    else if (matchedSubcon?.name === 'CV Baja Makmur') totalKontrakMock = 450000000;
+                                                    else if (matchedSubcon?.name === 'PT Semen Nusantara') totalKontrakMock = 2800000000;
+                                                    else if (matchedSubcon?.name === 'CV Elektrikal Prima') totalKontrakMock = 320000000;
+
+                                                    pmGroups[pm][subconName] = {
+                                                        subcon: matchedSubcon,
+                                                        subconName: matchedSubcon ? matchedSubcon.name : subconName,
+                                                        terbayar: 0,
+                                                        totalKontrak: totalKontrakMock
+                                                    };
+                                                }
+                                                pmGroups[pm][subconName].terbayar += t.amount;
+                                            });
+
+                                            if (Object.keys(pmGroups).length === 0) {
+                                                return (
+                                                    <tr>
+                                                        <td colSpan="5" className="px-4 py-8 text-center text-slate-500 italic">
+                                                            Belum ada data transaksi subkontraktor yang tercatat.
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            return Object.entries(pmGroups).map(([pm, subconsMap]) => (
+                                                <React.Fragment key={pm}>
+                                                    <tr className="bg-slate-50/50 dark:bg-slate-800/30">
+                                                        <td className="px-4 py-2 font-semibold text-primary text-xs tracking-wide" colSpan="5">
+                                                            <span className="material-icons text-xs align-middle mr-1">person</span> PM: {pm}
+                                                        </td>
+                                                    </tr>
+                                                    {Object.values(subconsMap).map(data => {
+                                                        const totalKontrak = Math.max(data.totalKontrak, data.terbayar);
+                                                        const sisa = totalKontrak - data.terbayar;
+                                                        const progress = totalKontrak > 0 ? Math.round((data.terbayar / totalKontrak) * 100) : 0;
+
+                                                        const isSelected = selectedSubcon?.name?.toLowerCase() === data.subconName.toLowerCase();
+
+                                                        return (
+                                                            <tr
+                                                                key={`${pm}-${data.subconName}`}
+                                                                onClick={() => data.subcon && setSelectedSubcon(data.subcon)}
+                                                                className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-2 border-transparent'}`}
+                                                            >
+                                                                <td className="px-4 py-2 pl-8 font-medium truncate max-w-[200px]" title={data.subconName}>{data.subconName}</td>
+                                                                <td className="px-4 py-2 text-right font-medium text-xs text-slate-900 dark:text-slate-200">
+                                                                    Rp {totalKontrak.toLocaleString('id-ID')}
+                                                                </td>
+                                                                <td className="px-4 py-2 text-right font-medium text-xs text-green-600 dark:text-green-400">
+                                                                    Rp {data.terbayar.toLocaleString('id-ID')}
+                                                                </td>
+                                                                <td className="px-4 py-2 text-right font-medium text-xs text-amber-600 dark:text-amber-400">
+                                                                    Rp {sisa.toLocaleString('id-ID')}
+                                                                </td>
+                                                                <td className="px-4 py-2 text-center">
+                                                                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 flex overflow-hidden">
+                                                                        <div className={`${progress >= 100 ? 'bg-blue-500' : 'bg-green-500'} h-1.5 rounded-full`} style={{ width: `${Math.min(progress, 100)}%` }}></div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </React.Fragment>
+                                            ));
+                                        })()}
                                     </tbody>
                                 </table>
                             </div>
