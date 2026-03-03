@@ -18,7 +18,9 @@ export default function CreateProjectModal({ isOpen, onClose }) {
             if (savedUsers) {
                 parsedUsers = JSON.parse(savedUsers);
             }
-            const projectManagers = parsedUsers.filter(u => u.role === 'Project Manager' && u.status === 'Active');
+            const projectManagers = parsedUsers.filter(u =>
+                u.role?.trim().toLowerCase() === 'project manager' && u.status === 'Active'
+            );
             setPms(projectManagers);
         }
     }, [isOpen]);
