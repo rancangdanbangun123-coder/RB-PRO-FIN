@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+    --color-primary: #137fec;
+    --color-primary-hover: #0f6bd0;
+    --color-background-light: #e2e8f0;
+    --color-background-dark: #101922;
+    --color-background-dark-lighter: #192430;
+    --color-surface-dark: #18222c;
+    --color-surface-darker: #131b24;
+    --color-surface-dark-lighter: #243240;
+    --color-surface-hover: #2d3b4d;
+    --color-card-dark: #182430;
+    --color-border-dark: #2a3642;
+    --color-text-secondary: #94a3b8;
+    --color-primary-dark: #0b5cb5;
+
+    --font-display: "Inter", sans-serif;
+
+    /* Hover overrides to be less glaring */
+    --color-slate-100-soft: #f1f5f9;
+
+    --animate-float: float 4s ease-in-out infinite;
+    --animate-float-reverse: float 5s ease-in-out infinite reverse;
+}
+
+@layer utilities {
+    .text-glow {
+        text-shadow: 0 0 40px rgba(19, 127, 236, 0.3);
+    }
+
+    .glass-panel {
+        background: rgba(25, 36, 48, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .hero-pattern {
+        background-color: #101922;
+        background-image: radial-gradient(#137fec 0.5px, transparent 0.5px);
+        background-size: 24px 24px;
+        opacity: 0.05;
+    }
+
+    .perspective-1000 {
+        perspective: 1000px;
+    }
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
+}
+
+/* Set default base styles */
+html {
+    font-size: 14px; /* Scaled down from 16px to make everything less bulky */
+}
+
+body {
+    font-family: var(--font-display);
+    background-color: var(--color-background-dark);
+
+    color: white;
+}
+
+@layer utilities {
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: var(--color-border-dark);
+        border-radius: 20px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: var(--color-text-secondary);
+    }
+}
