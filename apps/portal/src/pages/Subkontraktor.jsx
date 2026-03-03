@@ -305,7 +305,7 @@ export default function Subkontraktor() {
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Project Manager / Subcon</th>
+                                            <th className="px-4 py-3 font-medium">Nama User</th>
                                             <th className="px-4 py-3 font-medium text-right">Total Kontrak</th>
                                             <th className="px-4 py-3 font-medium text-right">Terbayar (YTD)</th>
                                             <th className="px-4 py-3 font-medium text-right">Sisa Tagihan</th>
