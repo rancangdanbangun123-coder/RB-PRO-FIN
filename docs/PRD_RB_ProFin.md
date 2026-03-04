@@ -439,4 +439,176 @@ erDiagram
 
 ---
 
+## 13. Integrasi Aplikasi Pihak Ketiga (API)
+
+**Tujuan:** Menghubungkan RB Pro-Fin dengan aplikasi eksternal untuk memperluas ekosistem kerja, otomasi alur kerja, dan sinkronisasi data lintas platform.
+
+### 13.1 Arsitektur Integrasi
+
+```mermaid
+graph LR
+    subgraph ProFin["RB Pro-Fin Backend"]
+        API["REST API<br/>(Hono.js)"]
+        WH["Webhook Engine"]
+        Q["Antrian Tugas<br/>(Job Queue)"]
+    end
+
+    subgraph Eksternal["Aplikasi Pihak Ketiga"]
+        N["Notion API"]
+        GS["Google Sheets API"]
+        WA["WhatsApp Business API"]
+        JR["Jurnal.id API"]
+        CU["Custom Webhook"]
+    end
+
+    API --> WH
+    WH --> Q
+    Q --> N
+    Q --> GS
+    Q --> WA
+    Q --> JR
+    Q --> CU
+```
+
+> [!IMPORTANT]
+> Seluruh integrasi pihak ketiga memerlukan **Backend API (Fase 2)** yang sudah aktif. Integrasi ini direncanakan untuk **Fase 4** dalam roadmap.
+
+---
+
+### 13.2 Notion API
+
+**Tujuan:** Sinkronisasi data proyek, pengadaan, dan laporan ke workspace Notion untuk kolaborasi tim dan dokumentasi.
+
+| Fitur                          | Deskripsi                                                                      | Endpoint Notion                  |
+|-------------------------------|-------------------------------------------------------------------------------|----------------------------------|
+| Sinkronisasi Proyek           | Push data proyek (nama, status, progres, PM) ke database Notion otomatis      | `POST /v1/pages`                 |
+| Dashboard Pengadaan           | Kirim status Kanban board ke tabel Notion untuk visibilitas manajemen          | `PATCH /v1/pages/{id}`           |
+| Log Keuangan                  | Sinkronisasi transaksi akuntansi ke database Notion sebagai backup/laporan     | `POST /v1/pages`                 |
+| Notifikasi via Komentar       | Tambah komentar di halaman Notion saat ada event penting (persetujuan, DO)     | `POST /v1/comments`              |
+| Impor dari Notion             | Tarik data dari database Notion ke Pro-Fin (misal: daftar material baru)       | `POST /v1/databases/{id}/query`  |
+
+**Konfigurasi yang Diperlukan:**
+- Notion Integration Token (Internal Integration)
+- Database ID untuk setiap modul yang disinkronkan
+- Mapping field antara Pro-Fin ↔ Notion property
+
+**Alur Kerja Contoh — Sinkronisasi Proyek ke Notion:**
+```
+1. PM membuat/update proyek di Pro-Fin
+2. Backend mendeteksi perubahan → trigger webhook
+3. Job queue memproses request ke Notion API
+4. Data proyek dibuat/diperbarui di database Notion
+5. Tim manajemen melihat update real-time di Notion
+```
+
+---
+
+### 13.3 Google Sheets API
+
+**Tujuan:** Sinkronisasi dua arah antara Pro-Fin dan Google Sheets untuk pengguna yang masih terbiasa dengan spreadsheet.
+
+| Fitur                          | Deskripsi                                                                      |
+|-------------------------------|-------------------------------------------------------------------------------|
+| Ekspor Laporan ke Sheets      | Otomatis push laporan keuangan dan proyek ke spreadsheet terjadwal             |
+| Impor Material (Upgrade)      | Upgrade fitur impor yang ada untuk langsung terhubung via API (tanpa unduh manual) |
+| Live Dashboard Spreadsheet    | Sinkronisasi KPI dashboard ke sheet untuk presentasi manajemen                 |
+| Backup Data                   | Jadwalkan ekspor data berkala ke Google Sheets sebagai backup                   |
+
+---
+
+### 13.4 WhatsApp Business API
+
+**Tujuan:** Mengirim notifikasi otomatis ke stakeholder via WhatsApp untuk event-event penting.
+
+| Event                          | Penerima          | Contoh Pesan                                                   |
+|-------------------------------|-------------------|---------------------------------------------------------------|
+| PR Baru Dibuat                | Admin / Approver  | "📋 PR baru #PR-1026 untuk proyek 117 - Dago Pakar menunggu persetujuan" |
+| PO Disetujui                 | Project Manager   | "✅ PO #PO-2025-010 telah disetujui. Silakan koordinasi pengiriman"     |
+| Material Diterima (DO)        | PM + Finance      | "📦 DO dikonfirmasi untuk #PR-1024. 5 dari 5 item diterima Sesuai"     |
+| Invoice Terbit                | Klien             | "🧾 Invoice Termin 2 untuk proyek 113 - Ciwaruga telah dikirim"        |
+| Pembayaran Diterima           | Finance + PM      | "💰 Pembayaran Rp 450.000.000 diterima untuk Termin 1 proyek 115"      |
+| Persetujuan Subkon            | Admin             | "🔔 Subkontraktor PT Cahaya Baru menunggu persetujuan Level 1"          |
+
+---
+
+### 13.5 Jurnal.id (Akuntansi Eksternal)
+
+**Tujuan:** Sinkronisasi transaksi keuangan ke software akuntansi Jurnal.id untuk pelaporan pajak dan audit.
+
+| Fitur                          | Deskripsi                                                                      |
+|-------------------------------|-------------------------------------------------------------------------------|
+| Push Transaksi                | Kirim data pemasukan/pengeluaran dari modul Akuntansi ke Jurnal.id             |
+| Sinkronisasi Invoice          | Buat invoice di Jurnal.id secara otomatis saat termin diterbitkan di Pro-Fin    |
+| Rekonsiliasi Pembayaran       | Update status pembayaran di Jurnal.id saat pembayaran dicatat di Pro-Fin        |
+| Laporan Pajak                 | Pelaporan PPN/PPh otomatis berdasarkan data transaksi yang tersinkronisasi      |
+
+---
+
+### 13.6 Webhook & REST API Umum
+
+**Tujuan:** Menyediakan API terbuka agar aplikasi pihak ketiga mana pun bisa terhubung ke Pro-Fin.
+
+| Komponen                       | Deskripsi                                                                      |
+|-------------------------------|-------------------------------------------------------------------------------|
+| REST API Publik               | Endpoint CRUD untuk semua modul (Proyek, Pengadaan, Material, Aset, dll.)      |
+| Webhook Outgoing              | Kirim event ke URL tujuan saat terjadi perubahan data (create, update, delete) |
+| Webhook Incoming              | Terima data dari aplikasi luar untuk diproses di Pro-Fin                       |
+| API Key Management            | Buat & kelola API key per integrasi dengan rate limiting                        |
+| Dokumentasi API (Swagger)     | Auto-generated OpenAPI docs di `/api/docs` untuk developer pihak ketiga        |
+| Rate Limiting                 | Batas 100 request/menit per API key untuk menjaga stabilitas                   |
+
+**Contoh Webhook Events:**
+
+| Event                    | Payload Utama                                              |
+|--------------------------|-----------------------------------------------------------|
+| `project.created`        | `{ id, name, status, pm, value }`                         |
+| `procurement.phase_changed` | `{ itemId, fromPhase, toPhase, timestamp }`            |
+| `invoice.generated`      | `{ invoiceId, projectId, terminNo, amount }`              |
+| `payment.received`       | `{ paymentId, invoiceId, amount, method }`                |
+| `subcontractor.approved` | `{ subconId, name, approvedBy, level }`                   |
+| `asset.transferred`      | `{ assetId, fromLocation, toLocation }`                   |
+| `material.price_updated` | `{ materialId, oldPrice, newPrice, trend }`               |
+
+**Contoh Penggunaan API:**
+
+```
+# Ambil daftar proyek aktif
+GET /api/v1/projects?status=Ongoing
+Authorization: Bearer {API_KEY}
+
+# Buat Purchase Request baru
+POST /api/v1/procurement/pr
+Authorization: Bearer {API_KEY}
+Content-Type: application/json
+{
+  "projectId": "117",
+  "materials": [
+    { "materialId": "BES-BAJ-001", "qty": 100, "unit": "Batang" }
+  ],
+  "notes": "Kebutuhan mendesak untuk pondasi"
+}
+
+# Daftarkan webhook untuk event pengadaan
+POST /api/v1/webhooks
+Authorization: Bearer {API_KEY}
+{
+  "url": "https://your-app.com/webhook",
+  "events": ["procurement.phase_changed", "payment.received"]
+}
+```
+
+---
+
+### 13.7 Prioritas Implementasi Integrasi
+
+| Prioritas | Integrasi            | Fase  | Alasan                                                        |
+|-----------|---------------------|-------|--------------------------------------------------------------|
+| 🔴 Tinggi | REST API & Webhook  | Fase 2 | Fondasi untuk semua integrasi lain                            |
+| 🔴 Tinggi | WhatsApp Business   | Fase 3 | Kebutuhan notifikasi mendesak dari tim lapangan               |
+| 🟡 Sedang | Notion API          | Fase 4 | Kolaborasi tim manajemen dan dokumentasi                      |
+| 🟡 Sedang | Google Sheets API   | Fase 4 | Transisi bertahap dari spreadsheet manual                     |
+| 🟢 Rendah | Jurnal.id           | Fase 4 | Bergantung pada volume transaksi dan kebutuhan audit          |
+
+---
+
 *Dokumen ini adalah artefak hidup dan harus diperbarui seiring perkembangan produk. Semua pemangku kepentingan dianjurkan untuk memberikan masukan sebelum pengembangan berlanjut ke Fase 2.*
