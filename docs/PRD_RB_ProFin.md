@@ -5,7 +5,7 @@
 |--------------------|-----------------------------------------------------|
 | **Nama Produk**    | RB Pro-Fin                                          |
 | **Versi**          | 1.0 (MVP)                                           |
-| **Penulis**        | Tim Produk RB Pro-Fin                                |
+| **Penulis**        | Tim R&D Rancangbangun123                               |
 | **Tanggal**        | 4 Maret 2026                                         |
 | **Status**         | Draf — Menunggu Tinjauan Pemangku Kepentingan        |
 
