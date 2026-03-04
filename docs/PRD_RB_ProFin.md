@@ -611,4 +611,64 @@ Authorization: Bearer {API_KEY}
 
 ---
 
+## 14. Prioritas Pengembangan Fitur
+
+Urutan pengembangan modul backend berdasarkan **dampak bisnis**, **dependency antar modul**, dan **frekuensi penggunaan harian**.
+
+### 14.1 Tabel Prioritas
+
+| Urutan | Modul | Skor | Alasan |
+|:---:|---|:---:|---|
+| **1** | 🔐 **User & Category Administration** | ⭐⭐⭐⭐⭐ | Fondasi semua modul lain. Auth harus jalan duluan, role & permission harus ready sebelum modul lain bisa dipakai. Kategori dipakai oleh Material, Aset, dan Pengadaan. |
+| **2** | 📋 **Project Management** | ⭐⭐⭐⭐⭐ | Entitas utama. Hampir semua modul lain bergantung pada `projectId` — pengadaan, invoice, akuntansi, laporan semua terikat ke proyek. |
+| **3** | 🛒 **Procurement Lifecycle** | ⭐⭐⭐⭐⭐ | Aktivitas harian paling intensif. 6 fase Kanban, dipakai PM & Site Manager setiap hari, volume data paling tinggi. |
+| **4** | 🏗️ **Material & Inventory** | ⭐⭐⭐⭐ | Dependency dari Procurement. PR butuh data material (harga, satuan). Material juga dipakai Subkontraktor untuk katalog supply. |
+| **5** | 👷 **Vendor & Subcontractor Management** | ⭐⭐⭐⭐ | Dependency dari Procurement. PO butuh data vendor. Approval flow penting untuk quality control supplier. |
+| **6** | 🧾 **Billing & Termin Management** | ⭐⭐⭐⭐ | Revenue stream. Ini yang menghasilkan uang — invoice ke klien harus akurat dan cepat. |
+| **7** | 💰 **Financial Register** | ⭐⭐⭐ | Pelengkap Billing. Setelah invoice jalan, butuh pencatatan transaksi masuk/keluar per proyek. |
+| **8** | 🔧 **Asset Tracking** | ⭐⭐⭐ | Penting tapi independen. Tidak blocking modul lain. Bisa dikembangkan paralel. |
+| **9** | 📊 **Reporting & Analytics** | ⭐⭐ | Konsumsi data, bukan produksi data. Laporan hanya berguna kalau data dari modul 1–8 sudah lengkap. |
+| **10** | 📈 **Dashboard & Summary Reporting** | ⭐⭐ | Paling akhir. Dashboard hanya agregasi dari semua modul lain — belum ada gunanya kalau data belum lengkap. |
+
+### 14.2 Diagram Dependency Antar Modul
+
+```mermaid
+graph TD
+    A["🔐 User & Category Admin"] --> B["📋 Project Management"]
+    A --> D["🏗️ Material & Inventory"]
+    B --> C["🛒 Procurement Lifecycle"]
+    D --> C
+    D --> E["👷 Vendor & Subcontractor"]
+    E --> C
+    C --> F["🧾 Billing & Termin"]
+    F --> G["💰 Financial Register"]
+    G --> H["📊 Reporting & Analytics"]
+    H --> I["📈 Dashboard"]
+    A --> J["🔧 Asset Tracking"]
+
+    style A fill:#dc2626,color:#fff
+    style B fill:#dc2626,color:#fff
+    style C fill:#dc2626,color:#fff
+    style D fill:#f97316,color:#fff
+    style E fill:#f97316,color:#fff
+    style F fill:#f97316,color:#fff
+    style G fill:#eab308,color:#000
+    style J fill:#eab308,color:#000
+    style H fill:#22c55e,color:#fff
+    style I fill:#22c55e,color:#fff
+```
+
+**Legenda:** 🔴 Kritis → 🟠 Penting → 🟡 Sedang → 🟢 Nice-to-Have
+
+### 14.3 Logika Pengurutan
+
+1. **Auth & master data dulu** (User, Kategori) — tanpa ini tidak bisa login
+2. **Proyek** — semua modul lain terikat ke proyek sebagai entitas utama
+3. **Pengadaan + Material + Vendor** — ini *core business* operasional harian
+4. **Keuangan** (Billing → Akuntansi) — butuh data dari pengadaan yang sudah jalan
+5. **Aset** — penting tapi independen, bisa dikerjakan paralel dengan keuangan
+6. **Laporan & Dashboard terakhir** — karena hanya *membaca* data, bukan *memproduksi* data
+
+---
+
 *Dokumen ini adalah artefak hidup dan harus diperbarui seiring perkembangan produk. Semua pemangku kepentingan dianjurkan untuk memberikan masukan sebelum pengembangan berlanjut ke Fase 2.*
