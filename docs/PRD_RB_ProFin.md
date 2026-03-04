@@ -404,7 +404,7 @@ erDiagram
 
 ## 12. Peta Jalan (Roadmap) Bertahap
 
-### Fase 1 — MVP Frontend ✅ (Kondisi Saat Ini)
+### Fase 1 — MVP Frontend
 - [x] Semua 10 modul diimplementasi dengan localStorage
 - [x] Routing berbasis peran dan sistem perizinan
 - [x] Pengadaan berbasis Kanban dengan 6 fase
