@@ -462,7 +462,6 @@ graph LR
     Q --> N
     Q --> GS
     Q --> WA
-    Q --> JR
     Q --> CU
 ```
 
