@@ -366,51 +366,48 @@ export default function InvoiceGeneratorModal({ isOpen, onClose, project, termin
                             </div>
 
                             {/* Main Table */}
-                            <div className="border-2 border-black mb-1">
-                                {/* Table Header */}
-                                <div className="grid grid-cols-[40px_200px_70px_60px_60px_1fr] border-b-2 border-black text-xs font-bold text-center bg-white divide-x-2 divide-black max-w-full">
-                                    <div className="py-2 flex items-center justify-center">No.</div>
-                                    <div className="py-2 flex items-center justify-center">Deskripsi</div>
-                                    <div className="py-2 flex items-center justify-center">Kuantitas</div>
-                                    <div className="py-2 flex items-center justify-center">Diskon</div>
-                                    <div className="py-2 flex items-center justify-center">Pajak</div>
-                                    <div className="flex flex-col">
-                                        <div className="py-2 flex items-center justify-center border-b-2 border-black">Harga (Rp)</div>
-                                        <div className="grid grid-cols-2 flex-1 divide-x-2 divide-black">
-                                            <div className="py-1 flex items-center justify-center">/ Unit</div>
-                                            <div className="py-1 flex items-center justify-center">Jumlah</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Table Body - Flexible Height */}
-                                <div className="min-h-[200px] flex-1 text-xs font-medium text-black divide-y opacity-100">
+                            <table className="w-full table-fixed border-2 border-black border-collapse text-xs font-medium text-black mb-1">
+                                <thead>
+                                    <tr className="border-b-2 border-black bg-white text-center font-bold">
+                                        <th className="border-r-2 border-black py-2 w-[40px] align-middle" rowSpan={2}>No.</th>
+                                        <th className="border-r-2 border-black py-2 align-middle" rowSpan={2}>Deskripsi</th>
+                                        <th className="border-r-2 border-black py-2 w-[70px] align-middle" rowSpan={2}>Kuantitas</th>
+                                        <th className="border-r-2 border-black py-2 w-[50px] align-middle" rowSpan={2}>Diskon</th>
+                                        <th className="border-r-2 border-black py-2 w-[50px] align-middle" rowSpan={2}>Pajak</th>
+                                        <th className="py-2 border-b-2 border-black w-[180px]" colSpan={2}>Harga (Rp)</th>
+                                    </tr>
+                                    <tr className="border-b-2 border-black bg-white text-center font-bold">
+                                        <th className="border-r-2 border-black py-1 w-[90px]">/ Unit</th>
+                                        <th className="py-1 w-[90px]">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                                     {terminsWithAmounts.map((item, idx) => (
-                                        <div key={idx} className="grid grid-cols-[40px_200px_70px_60px_60px_0.5fr_0.5fr] divide-x-2 divide-black flex-1 h-full">
-                                            <div className="p-2 text-center">{idx + 1}</div>
-                                            <div className="p-2 font-bold">
+                                        <tr key={idx} className="border-b-2 border-black">
+                                            <td className="border-r-2 border-black p-2 text-center align-top">{idx + 1}</td>
+                                            <td className="border-r-2 border-black p-2 font-bold align-top break-words">
                                                 {item.title}<br />
                                                 <span className="font-normal">{item.description}</span>
-                                            </div>
-                                            <div className="p-2 text-center">{item.qty}</div>
-                                            <div className="p-2 text-center">{item.discountPercent}%</div>
-                                            <div className="p-2 text-center">-</div>
-                                            <div className="p-2 text-right">{formatCurrency(item.numericAmount)}</div>
-                                            <div className="p-2 text-right">{formatCurrency(item.netTotal)}</div>
-                                        </div>
+                                            </td>
+                                            <td className="border-r-2 border-black p-2 text-center align-top">{item.qty}</td>
+                                            <td className="border-r-2 border-black p-2 text-center align-top">{item.discountPercent}%</td>
+                                            <td className="border-r-2 border-black p-2 text-center align-top">-</td>
+                                            <td className="border-r-2 border-black p-2 text-right align-top break-words max-w-[90px]">{formatCurrency(item.numericAmount)}</td>
+                                            <td className="p-2 text-right align-top break-words max-w-[90px]">{formatCurrency(item.netTotal)}</td>
+                                        </tr>
                                     ))}
                                     {/* Empty filler rows to maintain grid lines (Visual separation) */}
-                                    <div className="grid grid-cols-[40px_200px_70px_60px_60px_0.5fr_0.5fr] divide-x-2 divide-black flex-1 h-full">
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                        <div className=""></div>
-                                    </div>
-                                </div>
-                            </div>
+                                    <tr className="h-[120px]">
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="border-r-2 border-black p-2"></td>
+                                        <td className="p-2"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
 
                             {/* Summary Footer */}
                             <div className="flex border-2 border-black border-t-2 mb-8">
