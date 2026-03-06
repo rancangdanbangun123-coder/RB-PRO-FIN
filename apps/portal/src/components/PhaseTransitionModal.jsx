@@ -49,7 +49,6 @@ function getFields(from, to, isEdit = false) {
                 return [
                     { name: 'recv', label: 'Nama Penerima', type: 'text', required: true, placeholder: 'Nama penerima...' },
                     { name: 'receivedDate', label: 'Waktu Diterima', type: 'datetime', required: true },
-                    { name: 'doPhoto', label: 'Foto/Video', type: 'file', required: false },
                     { name: 'notes', label: 'Catatan', type: 'textarea', required: false, placeholder: 'Catatan penerimaan barang...' },
                     { name: 'materialCondition', label: 'Kondisi Barang Pesanan (Kualitas, Spek, Jumlah)', type: 'material_condition', required: true }
                 ];
@@ -83,7 +82,6 @@ function getFields(from, to, isEdit = false) {
             return [
                 { name: 'receivedBy', label: 'Nama Penerima', type: 'text', required: true, placeholder: 'Nama penerima di lokasi' },
                 { name: 'receivedDate', label: 'Waktu Diterima', type: 'datetime', required: true },
-                { name: 'doPhoto', label: 'Foto/Video', type: 'file', required: false },
                 { name: 'notes', label: 'Catatan', type: 'textarea', required: false, placeholder: 'Catatan penerimaan barang...' },
                 { name: 'materialCondition', label: 'Kondisi Barang Pesanan (Kualitas, Spek, Jumlah)', type: 'material_condition', required: true }
             ];
@@ -593,43 +591,85 @@ export default function PhaseTransitionModal({ isOpen, onClose, onConfirm, fromS
                                         }
 
                                         return (
-                                            <div className="space-y-2">
-                                                {materialRows.map((row, idx) => (
-                                                    <div key={row.key} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${conditions[row.key] === 'sesuai' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' :
+                                            <div className="space-y-3">
+                                                {materialRows.map((row) => (
+                                                    <div key={row.key} className={`flex flex-col p-3 rounded-lg border transition-colors ${conditions[row.key] === 'sesuai' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' :
                                                         conditions[row.key] === 'tidak_sesuai' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' :
                                                             'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                                                         }`}>
-                                                        <div className="flex-1 min-w-0 mr-3">
-                                                            <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{row.label}</div>
-                                                            {row.detail && <div className="text-[11px] text-slate-500 truncate">{row.detail}</div>}
+                                                        <div className="flex items-center justify-between mb-3 border-b border-slate-200/50 dark:border-slate-700/50 pb-3">
+                                                            <div className="flex-1 min-w-0 mr-3">
+                                                                <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{row.label}</div>
+                                                                {row.detail && <div className="text-[11px] text-slate-500 truncate">{row.detail}</div>}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const updated = { ...conditions, [row.key]: 'sesuai' };
+                                                                        handleChange(field.name, updated);
+                                                                    }}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${conditions[row.key] === 'sesuai'
+                                                                        ? 'bg-green-500 text-white border-green-600 shadow-sm'
+                                                                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-green-400 hover:text-green-600'
+                                                                        }`}
+                                                                >
+                                                                    <span className="material-icons-round text-[14px] align-middle mr-0.5">check_circle</span> Sesuai
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const updated = { ...conditions, [row.key]: 'tidak_sesuai' };
+                                                                        handleChange(field.name, updated);
+                                                                    }}
+                                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${conditions[row.key] === 'tidak_sesuai'
+                                                                        ? 'bg-red-500 text-white border-red-600 shadow-sm'
+                                                                        : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-red-400 hover:text-red-600'
+                                                                        }`}
+                                                                >
+                                                                    <span className="material-icons-round text-[14px] align-middle mr-0.5">cancel</span> Tidak Sesuai
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const updated = { ...conditions, [row.key]: 'sesuai' };
-                                                                    handleChange(field.name, updated);
-                                                                }}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${conditions[row.key] === 'sesuai'
-                                                                    ? 'bg-green-500 text-white border-green-600 shadow-sm'
-                                                                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-green-400 hover:text-green-600'
-                                                                    }`}
-                                                            >
-                                                                <span className="material-icons-round text-[14px] align-middle mr-0.5">check_circle</span> Sesuai
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const updated = { ...conditions, [row.key]: 'tidak_sesuai' };
-                                                                    handleChange(field.name, updated);
-                                                                }}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${conditions[row.key] === 'tidak_sesuai'
-                                                                    ? 'bg-red-500 text-white border-red-600 shadow-sm'
-                                                                    : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:border-red-400 hover:text-red-600'
-                                                                    }`}
-                                                            >
-                                                                <span className="material-icons-round text-[14px] align-middle mr-0.5">cancel</span> Tidak Sesuai
-                                                            </button>
+                                                        {/* Photo Attachment Per Row */}
+                                                        <div>
+                                                            <label className="text-[11px] font-medium text-slate-500 block mb-1">Upload Bukti Foto/Video (Opsional)</label>
+                                                            <div className="flex items-start gap-4">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*,video/*"
+                                                                    className={`${inputClass} text-xs py-1.5 flex-1 file:mr-3 file:py-1 file:px-2 file:rounded file:border-0 file:bg-primary/10 file:text-primary file:font-semibold file:text-xs file:cursor-pointer hover:file:bg-primary/20`}
+                                                                    onChange={e => {
+                                                                        const file = e.target.files[0];
+                                                                        if (file) {
+                                                                            // Store file name in conditions state or adjacent phaseData state
+                                                                            handleChange(`${field.name}_photo_${row.key}`, file.name);
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = () => handleChange(`${field.name}_photoData_${row.key}`, reader.result);
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {formData[`${field.name}_photoData_${row.key}`] && (
+                                                                    <div className="relative shrink-0 w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+                                                                        {formData[`${field.name}_photoData_${row.key}`].startsWith('data:video') ? (
+                                                                            <video src={formData[`${field.name}_photoData_${row.key}`]} className="w-full h-full object-cover" />
+                                                                        ) : (
+                                                                            <img src={formData[`${field.name}_photoData_${row.key}`]} alt="Preview" className="w-full h-full object-cover" />
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                handleChange(`${field.name}_photo_${row.key}`, null);
+                                                                                handleChange(`${field.name}_photoData_${row.key}`, null);
+                                                                            }}
+                                                                            className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-red-500/80 transition-colors"
+                                                                        >
+                                                                            <span className="material-icons-round text-[12px] block">close</span>
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}

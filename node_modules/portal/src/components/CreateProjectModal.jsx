@@ -6,11 +6,13 @@ import { DEFAULT_USERS } from '../data/userData';
 import { LOCATION_DATABASE } from '../data/locationData';
 
 export default function CreateProjectModal({ isOpen, onClose }) {
+    const [projectCode, setProjectCode] = useState("");
     const [projectName, setProjectName] = useState("");
     const [categoryId, setCategoryId] = useState("");
     const [pic, setPic] = useState("");
     const [client, setClient] = useState("");
     const [pms, setPms] = useState([]);
+    const [errorMessage, setErrorMessage] = useState("");
 
     // Hierarchical Location State
     const [selectedProvince, setSelectedProvince] = useState("");
@@ -60,16 +62,31 @@ export default function CreateProjectModal({ isOpen, onClose }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setErrorMessage("");
+
+        // Basic format validation: must be exactly 3 digits
+        if (!/^\d{3}$/.test(projectCode)) {
+            setErrorMessage("Kode Proyek harus terdiri dari tepat 3 digit angka (misal: 001).");
+            return;
+        }
+
+        // Fetch existing projects to check for duplicates
+        const savedData = localStorage.getItem('projects');
+        const currentProjects = savedData ? JSON.parse(savedData) : [];
+
+        // Check uniqueness using the exact code (since we map it to project.id)
+        const isDuplicate = currentProjects.some(project => project.id === projectCode);
+        if (isDuplicate) {
+            setErrorMessage(`Gagal: Kode Proyek '${projectCode}' sudah digunakan oleh proyek lain.`);
+            return;
+        }
 
         const cityObj = document.getElementById('city');
         const districtObj = document.getElementById('district');
 
-        // Generate a simple numeric ID based on timestamp
-        const randomId = Date.now().toString().slice(-4);
-
         const newProject = {
-            id: randomId,
-            name: `${randomId} - ${projectName}`,
+            id: projectCode,
+            name: `${projectCode} - ${projectName}`,
             categoryId: Number(categoryId),
             location: [selectedDistrict, selectedCity, selectedProvince].filter(Boolean).join(', ') || 'Lokasi Belum Ditentukan',
             client: client || 'Internal',
@@ -82,15 +99,18 @@ export default function CreateProjectModal({ isOpen, onClose }) {
             health: 'Good'
         };
 
-        // Fetch existing, append, and save
-        const savedData = localStorage.getItem('projects');
+        // Append, and save
         // We will default to empty array here; Projects.jsx will handle the initial DB seeding if needed
-        const currentProjects = savedData ? JSON.parse(savedData) : [];
         currentProjects.push(newProject);
         localStorage.setItem('projects', JSON.stringify(currentProjects));
 
         // Notify other components
         window.dispatchEvent(new Event('projectsUpdated'));
+
+        // Reset form specifics on successful close
+        setProjectCode("");
+        setProjectName("");
+        setErrorMessage("");
 
         onClose();
     };
@@ -122,12 +142,27 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Masukkan detail awal untuk memulai proyek konstruksi baru.</p>
                         </div>
                         <button
-                            onClick={onClose}
+                            onClick={() => {
+                                setErrorMessage("");
+                                onClose();
+                            }}
                             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50"
                         >
                             <span className="material-icons-round">close</span>
                         </button>
                     </div>
+
+                    {/* Error Alert */}
+                    {errorMessage && (
+                        <div className="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-lg">
+                            <div className="flex items-center">
+                                <span className="material-icons-round text-red-500 mr-2">error_outline</span>
+                                <p className="text-sm text-red-700 dark:text-red-400 font-medium">
+                                    {errorMessage}
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Modal Body (Scrollable) */}
                     <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
@@ -140,26 +175,48 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                                     <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Informasi Utama</h3>
                                 </div>
 
-                                {/* Nama Proyek */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="project_name">Nama Proyek <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                                            <span className="material-icons-round text-lg">edit</span>
-                                        </span>
-                                        <input
-                                            className="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-surface-dark-lighter text-gray-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 transition-shadow"
-                                            id="project_name"
-                                            name="project_name"
-                                            placeholder="Contoh: Renovasi Kantor Pusat PT. Maju Jaya"
-                                            type="text"
-                                        />
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    {/* Kode Proyek */}
+                                    <div className="md:col-span-1">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="project_code">Kode Proyek <span className="text-red-500">*</span></label>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                                <span className="material-icons-round text-lg">tag</span>
+                                            </span>
+                                            <input
+                                                className="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-surface-dark-lighter text-gray-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 transition-shadow"
+                                                id="project_code"
+                                                name="project_code"
+                                                placeholder="001"
+                                                type="text"
+                                                maxLength={3}
+                                                value={projectCode}
+                                                onChange={(e) => setProjectCode(e.target.value.replace(/\D/g, ''))} // strictly numbers
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Nama Proyek */}
+                                    <div className="md:col-span-3">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" htmlFor="project_name">Nama Proyek <span className="text-red-500">*</span></label>
+                                        <div className="relative">
+                                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                                <span className="material-icons-round text-lg">edit</span>
+                                            </span>
+                                            <input
+                                                className="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-surface-dark-lighter text-gray-900 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 transition-shadow"
+                                                id="project_name"
+                                                name="project_name"
+                                                placeholder="Contoh: Renovasi Kantor Pusat PT. Maju Jaya"
+                                                type="text"
+                                                value={projectName}
+                                                onChange={(e) => setProjectName(e.target.value)}
+                                                required
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-
-
-
-                                {/* Lokasi Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {/* Provinsi */}
                                     <div>
@@ -238,7 +295,10 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                         {/* Modal Footer */}
                         <div className="bg-gray-50 dark:bg-surface-dark-lighter/50 px-6 py-4 flex flex-col sm:flex-row sm:justify-end gap-3 border-t border-gray-100 dark:border-gray-700">
                             <button
-                                onClick={onClose}
+                                onClick={() => {
+                                    setErrorMessage("");
+                                    onClose();
+                                }}
                                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-gray-900 transition-colors"
                                 type="button"
                             >

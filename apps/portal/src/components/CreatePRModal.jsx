@@ -12,7 +12,7 @@ export default function CreatePRModal({ isOpen, onClose, projects, onSubmit }) {
     // Form State
     const [selectedProject, setSelectedProject] = useState('');
     const [items, setItems] = useState([]);
-    const [combineItems, setCombineItems] = useState(false);
+    const [combineItems, setCombineItems] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
