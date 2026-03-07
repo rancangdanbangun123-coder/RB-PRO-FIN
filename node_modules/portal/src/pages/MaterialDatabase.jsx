@@ -635,22 +635,27 @@ export default function MaterialDatabase() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 whitespace-nowrap">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[150px]" title={item.category}>{item.category}</div>
-                                                    {item.category && item.category !== 'Uncategorized' && item.category !== '-' && categories.length > 0 && !categories.some(c => c.name === item.category) && (
-                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800" title="Kategori ini telah dihapus dari master data">
-                                                            Dihapus
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <div className="text-xs text-slate-500 truncate max-w-[150px]" title={item.subCategory}>{item.subCategory}</div>
-                                                    {item.subCategory && item.subCategory !== '-' && subCategories.length > 0 && !subCategories.some(s => s.name === item.subCategory) && (
-                                                        <span className="px-1 py-0.5 rounded text-[9px] font-medium bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800" title="Subkategori ini telah dihapus dari master data">
-                                                            Dihapus
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                {(() => {
+                                                    const isCategoryDeleted = item.category && item.category !== 'Uncategorized' && item.category !== '-' && categories.length > 0 && !categories.some(c => c.name === item.category);
+                                                    const isSubDeleted = item.subCategory && item.subCategory !== '-' && subCategories.length > 0 && !subCategories.some(s => s.name === item.subCategory);
+
+                                                    return (
+                                                        <>
+                                                            <div className={`flex items-center gap-1 ${isCategoryDeleted ? 'text-red-500 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                                                                <span className="text-sm font-medium truncate max-w-[150px]" title={item.category}>{item.category}</span>
+                                                                {isCategoryDeleted && (
+                                                                    <span className="material-icons-round text-[14px]" title="Kategori ini telah dihapus dari master data">error_outline</span>
+                                                                )}
+                                                            </div>
+                                                            <div className={`flex items-center gap-1 mt-0.5 ${isSubDeleted ? 'text-red-400 dark:text-red-500' : 'text-slate-500'}`}>
+                                                                <span className="text-xs truncate max-w-[150px]" title={item.subCategory}>{item.subCategory}</span>
+                                                                {isSubDeleted && (
+                                                                    <span className="material-icons-round text-[12px]" title="Subkategori ini telah dihapus dari master data">error_outline</span>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </td>
                                             <td className="px-2 py-4 whitespace-nowrap text-right">
                                                 <div className="text-sm font-mono font-semibold text-slate-900 dark:text-white" title="Harga AHS">
