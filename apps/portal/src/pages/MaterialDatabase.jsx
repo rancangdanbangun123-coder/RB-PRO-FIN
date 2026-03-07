@@ -641,17 +641,21 @@ export default function MaterialDatabase() {
 
                                                     return (
                                                         <>
-                                                            <div className={`flex items-center gap-1 ${isCategoryDeleted ? 'text-red-500 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
-                                                                <span className="text-sm font-medium truncate max-w-[150px]" title={item.category}>{item.category}</span>
+                                                            <div className={`flex items-center gap-1.5 ${isCategoryDeleted ? 'text-red-500 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
                                                                 {isCategoryDeleted && (
                                                                     <span className="material-icons-round text-[14px]" title="Kategori ini telah dihapus dari master data">error_outline</span>
                                                                 )}
+                                                                <span className="text-sm font-medium truncate max-w-[150px]" title={isCategoryDeleted ? "Kategori tidak valid" : item.category}>
+                                                                    {isCategoryDeleted ? '(Belum Dialokasikan)' : item.category}
+                                                                </span>
                                                             </div>
-                                                            <div className={`flex items-center gap-1 mt-0.5 ${isSubDeleted ? 'text-red-400 dark:text-red-500' : 'text-slate-500'}`}>
-                                                                <span className="text-xs truncate max-w-[150px]" title={item.subCategory}>{item.subCategory}</span>
+                                                            <div className={`flex items-center gap-1.5 mt-0.5 ${isSubDeleted ? 'text-red-400 dark:text-red-500' : 'text-slate-500'}`}>
                                                                 {isSubDeleted && (
                                                                     <span className="material-icons-round text-[12px]" title="Subkategori ini telah dihapus dari master data">error_outline</span>
                                                                 )}
+                                                                <span className="text-xs truncate max-w-[150px]" title={isSubDeleted ? "Subkategori tidak valid" : item.subCategory}>
+                                                                    {isSubDeleted ? '(Belum Dialokasikan)' : item.subCategory}
+                                                                </span>
                                                             </div>
                                                         </>
                                                     );
