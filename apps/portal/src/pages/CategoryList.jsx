@@ -387,7 +387,7 @@ export default function CategoryList() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-2 mr-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className={`flex items-center gap-2 mr-4 transition-opacity ${cat.name.toLowerCase() === 'aset' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                                                     <Link
                                                         to={`/category/edit/${cat.id}`}
                                                         className="p-1.5 text-slate-400 hover:text-primary rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -413,8 +413,8 @@ export default function CategoryList() {
                                                         </button>
                                                     ) : (
                                                         <span
-                                                            className="p-1.5 text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                                                            title="Kategori sistem, tidak dapat dihapus"
+                                                            className="p-1.5 text-amber-500 dark:text-amber-400 cursor-not-allowed"
+                                                            title="Kategori sistem — tidak dapat dihapus"
                                                         >
                                                             <span className="material-icons-round">lock</span>
                                                         </span>
