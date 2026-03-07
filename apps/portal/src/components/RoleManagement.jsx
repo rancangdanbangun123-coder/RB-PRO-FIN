@@ -263,7 +263,7 @@ export default function RoleManagement() {
                                         </div>
                                     )}
 
-                                    <div className="mt-4 space-y-4">
+                                    <div className="mt-4 space-y-6">
                                         {permissionGroups.map(group => {
                                             const groupPerms = group.permissions;
                                             const enabledCount = groupPerms.filter(p => perms.includes(p.key)).length;
@@ -271,42 +271,39 @@ export default function RoleManagement() {
                                             const someEnabled = enabledCount > 0 && !allEnabled;
 
                                             return (
-                                                <div key={group.name} className="border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden">
+                                                <div key={group.name} className="flex flex-col gap-3">
                                                     {/* Group Header */}
-                                                    <button
-                                                        onClick={() => toggleGroup(roleName, group.name)}
-                                                        disabled={isAdmin}
-                                                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${allEnabled
-                                                                ? 'bg-primary/5 dark:bg-primary/10'
-                                                                : someEnabled
-                                                                    ? 'bg-slate-50/80 dark:bg-slate-800/40'
-                                                                    : 'bg-slate-50/50 dark:bg-slate-800/20'
-                                                            } ${isAdmin ? 'cursor-not-allowed' : 'hover:bg-slate-100/50 dark:hover:bg-slate-800/50'}`}
-                                                    >
-                                                        {/* Group checkbox */}
-                                                        <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors shrink-0 ${allEnabled
-                                                                ? 'bg-primary border-primary text-white'
-                                                                : someEnabled
-                                                                    ? 'bg-primary/30 border-primary/60 text-white'
-                                                                    : 'border-slate-300 dark:border-slate-600'
-                                                            }`}>
-                                                            {(allEnabled || someEnabled) && (
-                                                                <span className="material-icons-round text-[14px]">{allEnabled ? 'check' : 'remove'}</span>
-                                                            )}
+                                                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="material-icons-round text-[20px] text-slate-400">
+                                                                {group.icon}
+                                                            </span>
+                                                            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                                                {group.name}
+                                                            </span>
+                                                            <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                                                {enabledCount}/{groupPerms.length}
+                                                            </span>
                                                         </div>
-                                                        <span className={`material-icons-round text-[20px] ${allEnabled ? 'text-primary' : 'text-slate-400'}`}>
-                                                            {group.icon}
-                                                        </span>
-                                                        <span className={`text-sm font-semibold flex-1 ${allEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
-                                                            {group.name}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-                                                            {enabledCount}/{groupPerms.length}
-                                                        </span>
-                                                    </button>
 
-                                                    {/* Individual Permissions */}
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800/40 border-t border-slate-200 dark:border-slate-700/50">
+                                                        {/* Group Toggle: Pilih Semua */}
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Pilih Semua</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleGroup(roleName, group.name)}
+                                                                disabled={isAdmin}
+                                                                className={`w-9 h-5 rounded-full flex items-center transition-colors duration-200 ${allEnabled ? 'bg-primary' : someEnabled ? 'bg-primary/50' : 'bg-slate-300 dark:bg-slate-600'
+                                                                    } ${isAdmin ? 'cursor-not-allowed opacity-70' : 'hover:opacity-90'}`}
+                                                            >
+                                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mx-0.5 ${allEnabled || someEnabled ? 'translate-x-[16px]' : 'translate-x-0'
+                                                                    }`}></div>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Individual Permissions (Clean Grid) */}
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-6 pl-1 pr-1">
                                                         {groupPerms.map(perm => {
                                                             const isEnabled = perms.includes(perm.key);
                                                             return (
@@ -314,22 +311,18 @@ export default function RoleManagement() {
                                                                     key={perm.key}
                                                                     onClick={() => togglePermission(roleName, perm.key)}
                                                                     disabled={isAdmin}
-                                                                    className={`flex items-center gap-2.5 px-4 py-2.5 text-left transition-all border-r border-slate-100 dark:border-slate-800/40 last:border-r-0 ${isEnabled ? 'bg-white dark:bg-card-dark' : 'bg-slate-50/30 dark:bg-slate-800/10'
-                                                                        } ${isAdmin ? 'cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'}`}
+                                                                    className="flex items-center justify-between group py-1"
                                                                 >
-                                                                    {/* Toggle */}
-                                                                    <div className={`w-8 h-[18px] rounded-full flex items-center transition-colors duration-200 shrink-0 ${isEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'
-                                                                        }`}>
+                                                                    <div className={`text-sm transition-colors text-left ${isEnabled ? 'text-slate-700 dark:text-slate-300 font-medium' : 'text-slate-400 dark:text-slate-500'
+                                                                        } ${isAdmin ? '' : 'group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+                                                                        {perm.label}
+                                                                    </div>
+
+                                                                    {/* Individual Toggle */}
+                                                                    <div className={`w-8 h-[18px] rounded-full flex items-center transition-colors duration-200 shrink-0 ${isEnabled ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'
+                                                                        } ${isAdmin ? 'opacity-70' : ''}`}>
                                                                         <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-sm transform transition-transform duration-200 mx-0.5 ${isEnabled ? 'translate-x-[14px]' : 'translate-x-0'
                                                                             }`}></div>
-                                                                    </div>
-                                                                    <span className={`material-icons-round text-[16px] ${isEnabled ? 'text-primary' : 'text-slate-400'}`}>
-                                                                        {perm.icon}
-                                                                    </span>
-                                                                    <div className="min-w-0">
-                                                                        <div className={`text-xs font-medium truncate ${isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                                                                            {perm.label}
-                                                                        </div>
                                                                     </div>
                                                                 </button>
                                                             );
