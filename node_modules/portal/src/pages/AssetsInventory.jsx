@@ -23,6 +23,7 @@ export default function AssetsInventory() {
         const parsedAssets = saved ? JSON.parse(saved) : ASSET_DATABASE;
         return parsedAssets[0] || null;
     });
+    const [selectedItems, setSelectedItems] = useState([]); // Bulk select state
     const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'requests'
 
     React.useEffect(() => {
@@ -120,6 +121,18 @@ export default function AssetsInventory() {
         if (window.confirm('Apakah Anda yakin ingin menghapus aset ini? Tindakan ini tidak dapat dibatalkan.')) {
             setAssets(assets.filter(a => a.id !== id));
             setSelectedAsset(null);
+            setSelectedItems(prev => prev.filter(selectedId => selectedId !== id));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedItems.length === 0) return;
+        if (window.confirm(`Apakah Anda yakin ingin menghapus ${selectedItems.length} aset yang dipilih?`)) {
+            setAssets(prev => prev.filter(item => !selectedItems.includes(item.id)));
+            if (selectedAsset && selectedItems.includes(selectedAsset.id)) {
+                setSelectedAsset(null);
+            }
+            setSelectedItems([]);
         }
     };
 
@@ -290,19 +303,19 @@ export default function AssetsInventory() {
                                 </div>
                                 <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 p-1 rounded-lg w-full sm:w-auto overflow-x-auto custom-scrollbar">
                                     <button
-                                        onClick={() => { setActiveTab('inventory'); setSelectedAsset(null); }}
+                                        onClick={() => { setActiveTab('inventory'); setSelectedAsset(null); setSelectedItems([]); }}
                                         className={`px-3 md:px-4 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-all flex-1 sm:flex-none ${activeTab === 'inventory' ? 'bg-white dark:bg-background-dark text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
                                     >
                                         Daftar Aset
                                     </button>
                                     <button
-                                        onClick={() => { setActiveTab('requests'); setSelectedAsset(null); }}
+                                        onClick={() => { setActiveTab('requests'); setSelectedAsset(null); setSelectedItems([]); }}
                                         className={`px-3 md:px-4 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-all flex-1 sm:flex-none ${activeTab === 'requests' ? 'bg-white dark:bg-background-dark text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
                                     >
                                         Riwayat & Pengajuan
                                     </button>
                                     <button
-                                        onClick={() => { setActiveTab('sisa'); setSelectedAsset(null); }}
+                                        onClick={() => { setActiveTab('sisa'); setSelectedAsset(null); setSelectedItems([]); }}
                                         className={`px-3 md:px-4 py-1.5 text-sm font-medium rounded-md whitespace-nowrap transition-all flex-1 sm:flex-none ${activeTab === 'sisa' ? 'bg-white dark:bg-background-dark text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}
                                     >
                                         Daftar Material
@@ -336,7 +349,21 @@ export default function AssetsInventory() {
                                     <thead className="bg-slate-50 dark:bg-background-dark sticky top-0 z-10">
                                         <tr>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-12" scope="col">
-                                                <input className="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary bg-transparent" type="checkbox" />
+                                                <input
+                                                    className="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary bg-transparent"
+                                                    type="checkbox"
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            const currentlyViewedIds = currentItems.map(item => item.id);
+                                                            const newSelection = [...new Set([...selectedItems, ...currentlyViewedIds])];
+                                                            setSelectedItems(newSelection);
+                                                        } else {
+                                                            const currentlyViewedIds = currentItems.map(item => item.id);
+                                                            setSelectedItems(prev => prev.filter(id => !currentlyViewedIds.includes(id)));
+                                                        }
+                                                    }}
+                                                    checked={currentItems.length > 0 && currentItems.every(item => selectedItems.includes(item.id))}
+                                                />
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">Aset</th>
                                             <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider" scope="col">Kategori &amp; Brand</th>
@@ -356,8 +383,16 @@ export default function AssetsInventory() {
                                                     <input
                                                         className="rounded border-slate-300 dark:border-slate-600 text-primary focus:ring-primary bg-transparent"
                                                         type="checkbox"
-                                                        checked={selectedAsset?.id === asset.id}
-                                                        onChange={() => setSelectedAsset(asset)}
+                                                        checked={selectedItems.includes(asset.id)}
+                                                        onChange={(e) => {
+                                                            e.stopPropagation(); // prevent clicking row
+                                                            if (e.target.checked) {
+                                                                setSelectedItems(prev => [...prev, asset.id]);
+                                                            } else {
+                                                                setSelectedItems(prev => prev.filter(id => id !== asset.id));
+                                                            }
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()} // double protection
                                                     />
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -652,6 +687,25 @@ export default function AssetsInventory() {
                         </aside>
                     )}
                 </div>
+
+                {/* Selected Status Bar for Inventory */}
+                {
+                    activeTab === 'inventory' && selectedItems.length > 0 && (
+                        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 lg:ml-0 z-50 bg-slate-900 text-white px-6 py-3 rounded-full flex items-center shadow-lg gap-6 animate-fade-in-up">
+                            <span className="font-medium text-sm flex items-center gap-2">
+                                <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedItems.length}</span>
+                                Item Dipilih
+                            </span>
+                            <div className="h-4 w-px bg-slate-700"></div>
+                            <div className="flex items-center gap-3">
+                                <button onClick={handleBulkDelete} className="flex items-center gap-1 text-sm text-slate-300 hover:text-white transition-colors">
+                                    <span className="material-icons-round text-base">delete</span>
+                                    Hapus
+                                </button>
+                            </div>
+                        </div>
+                    )
+                }
             </main>
 
             <EditAssetModal
