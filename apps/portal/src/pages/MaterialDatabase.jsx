@@ -590,10 +590,10 @@ export default function MaterialDatabase() {
                     {/* Table Content */}
                     <div className="flex-1 overflow-auto px-6 pb-20">
                         <div className="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
+                            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                                 <thead className="bg-slate-50 dark:bg-surface-dark/50">
                                     <tr>
-                                        <th className="px-4 py-3 text-left w-12">
+                                        <th className="px-4 py-3 text-left">
                                             <input
                                                 type="checkbox"
                                                 onChange={handleSelectAll}
@@ -601,11 +601,11 @@ export default function MaterialDatabase() {
                                                 className="rounded border-slate-300 text-primary focus:ring-primary"
                                             />
                                         </th>
-                                        <th className="px-4 py-3 text-left w-full text-xs font-semibold text-slate-500 uppercase tracking-wider">Item Details</th>
-                                        <th className="px-4 py-3 text-left w-48 text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
-                                        <th className="px-4 py-3 text-right w-36 text-xs font-semibold text-slate-500 uppercase tracking-wider">Harga Satuan</th>
-                                        <th className="px-4 py-3 text-center w-28 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                                        <th className="px-2 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-12">Aksi</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Item Details</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Kategori</th>
+                                        <th className="px-2 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider w-32">Harga Satuan</th>
+                                        <th className="px-2 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                        <th className="px-2 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-10">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -628,17 +628,17 @@ export default function MaterialDatabase() {
                                                     <div className="h-10 w-10 flex-shrink-0 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-lg">
                                                         {(item.name || '?').charAt(0)}
                                                     </div>
-                                                    <div className="ml-4 truncate">
-                                                        <div className="text-sm font-medium text-slate-900 dark:text-white truncate">{item.name}</div>
+                                                    <div className="ml-4">
+                                                        <div className="text-sm font-medium text-slate-900 dark:text-white max-w-[200px] lg:max-w-[250px] xl:max-w-xs xl:whitespace-normal truncate" title={item.name}>{item.name}</div>
                                                         <div className="text-xs text-slate-500 font-mono">{item.id}</div>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 whitespace-nowrap">
-                                                <div className="text-sm text-slate-900 dark:text-white truncate">{item.category}</div>
-                                                <div className="text-xs text-slate-500 truncate">{item.subCategory}</div>
+                                                <div className="text-sm text-slate-900 dark:text-white">{item.category}</div>
+                                                <div className="text-xs text-slate-500">{item.subCategory}</div>
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-right">
+                                            <td className="px-2 py-4 whitespace-nowrap text-right">
                                                 <div className="text-sm font-mono font-semibold text-slate-900 dark:text-white" title="Harga AHS">
                                                     Rp {formatCurrency(item.ahsPrice || item.price || 0)}
                                                 </div>
@@ -652,7 +652,7 @@ export default function MaterialDatabase() {
                                                 </div>
                                                 <div className="text-xs text-slate-400 mt-0.5">per {item.unit}</div>
                                             </td>
-                                            <td className="px-4 py-4 whitespace-nowrap text-center">
+                                            <td className="px-2 py-4 whitespace-nowrap text-center">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
                                                 ${item.status === 'Active' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                                                         item.status === 'Inactive' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
