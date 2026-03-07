@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-const DEFAULT_ROLES = ['Admin', 'Project Manager', 'Finance', 'Site Manager'];
+import { getRolePermissions, saveRolePermissions } from '../context/AuthContext';
 
 export default function UserModal({ isOpen, onClose, onSave, initialData }) {
     const [formData, setFormData] = useState({
@@ -14,16 +13,9 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
     const [animateIn, setAnimateIn] = useState(false);
     const [isAddingRole, setIsAddingRole] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
-    const [customRoles, setCustomRoles] = useState(() => {
-        const saved = localStorage.getItem('customRoles');
-        return saved ? JSON.parse(saved) : [];
-    });
 
-    const allRoles = [...DEFAULT_ROLES, ...customRoles];
-
-    useEffect(() => {
-        localStorage.setItem('customRoles', JSON.stringify(customRoles));
-    }, [customRoles]);
+    // Get all available roles from the dynamic rolePermissions store
+    const allRoles = Object.keys(getRolePermissions());
 
     useEffect(() => {
         if (isOpen) {
@@ -67,24 +59,18 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
         const trimmed = newRoleName.trim();
         if (!trimmed) return;
         if (allRoles.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
-            // Role already exists, just select it
             setFormData(prev => ({ ...prev, role: allRoles.find(r => r.toLowerCase() === trimmed.toLowerCase()) }));
             setIsAddingRole(false);
             setNewRoleName('');
             return;
         }
-        setCustomRoles(prev => [...prev, trimmed]);
+        // Add role to the rolePermissions store with basic access
+        const current = getRolePermissions();
+        current[trimmed] = ['view_proyek'];
+        saveRolePermissions(current);
         setFormData(prev => ({ ...prev, role: trimmed }));
         setIsAddingRole(false);
         setNewRoleName('');
-    };
-
-    const handleDeleteCustomRole = (roleToDelete) => {
-        setCustomRoles(prev => prev.filter(r => r !== roleToDelete));
-        // If the currently selected role is the one being deleted, reset to default
-        if (formData.role === roleToDelete) {
-            setFormData(prev => ({ ...prev, role: 'Project Manager' }));
-        }
     };
 
     const handleSubmit = (e) => {
@@ -191,35 +177,12 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
                                         onChange={handleChange}
                                         className="w-full px-4 py-2 bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                                     >
-                                        {DEFAULT_ROLES.map(role => (
-                                            <option key={role} value={role}>{role}</option>
-                                        ))}
-                                        {customRoles.length > 0 && (
-                                            <option disabled>───── Custom ─────</option>
-                                        )}
-                                        {customRoles.map(role => (
+                                        {allRoles.map(role => (
                                             <option key={role} value={role}>{role}</option>
                                         ))}
                                         <option disabled>─────────────────</option>
                                         <option value="__add_new__">＋ Tambah Role Baru</option>
                                     </select>
-                                    {customRoles.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {customRoles.map(role => (
-                                                <span key={role} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs text-slate-600 dark:text-slate-300">
-                                                    {role}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteCustomRole(role)}
-                                                        className="text-slate-400 hover:text-red-500 transition-colors ml-0.5"
-                                                        title={`Hapus role "${role}"`}
-                                                    >
-                                                        <span className="material-icons-round text-[14px]">close</span>
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>

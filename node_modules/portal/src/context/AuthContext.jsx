@@ -3,22 +3,41 @@ import { DEFAULT_USERS } from '../data/userData';
 
 const AuthContext = createContext(null);
 
-// Permission map per role
-// Admin: full access
-// Project Manager: everything except user management and full keuangan, only own projects
-// Finance: everything except user management
-// Site Manager: Dashboard, Proyek (own), Kategori, Logistik. No full Keuangan, no Manajemen Pengguna.
-const ROLE_PERMISSIONS = {
+// All available permission keys with Indonesian labels for the UI
+export const ALL_PERMISSIONS = [
+    { key: 'view_users', label: 'Manajemen Pengguna', icon: 'manage_accounts', description: 'Kelola data pengguna dan wewenang' },
+    { key: 'view_proyek', label: 'Proyek', icon: 'assignment', description: 'Akses halaman proyek' },
+    { key: 'view_category', label: 'Kategori', icon: 'category', description: 'Kelola kategori & sub-kategori' },
+    { key: 'view_logistik', label: 'Logistik', icon: 'local_shipping', description: 'Material, Aset, Pengadaan, Subkontraktor' },
+    { key: 'view_keuangan', label: 'Keuangan', icon: 'receipt', description: 'Invoice & Laporan' },
+    { key: 'view_akuntansi', label: 'Akuntansi', icon: 'account_balance_wallet', description: 'Akses modul akuntansi' },
+    { key: 'view_all_projects', label: 'Lihat Semua Proyek', icon: 'visibility', description: 'Lihat proyek seluruh organisasi' },
+];
+
+// Default role-permission mapping (seeded on first load)
+const DEFAULT_ROLE_PERMISSIONS = {
     'Admin': ['view_users', 'view_proyek', 'view_category', 'view_logistik', 'view_keuangan', 'view_akuntansi', 'view_all_projects'],
     'Project Manager': ['view_proyek', 'view_category', 'view_logistik', 'view_akuntansi'],
     'Finance': ['view_proyek', 'view_category', 'view_logistik', 'view_keuangan', 'view_akuntansi', 'view_all_projects'],
     'Site Manager': ['view_proyek', 'view_category', 'view_logistik', 'view_akuntansi'],
 };
 
+// Read or seed role permissions from localStorage
+export function getRolePermissions() {
+    const saved = localStorage.getItem('rolePermissions');
+    if (saved) return JSON.parse(saved);
+    localStorage.setItem('rolePermissions', JSON.stringify(DEFAULT_ROLE_PERMISSIONS));
+    return { ...DEFAULT_ROLE_PERMISSIONS };
+}
+
+export function saveRolePermissions(rolePerms) {
+    localStorage.setItem('rolePermissions', JSON.stringify(rolePerms));
+    window.dispatchEvent(new Event('rolePermissionsUpdated'));
+}
+
 function getUsers() {
     const saved = localStorage.getItem('users');
     if (saved) return JSON.parse(saved);
-    // Seed default users on first load
     localStorage.setItem('users', JSON.stringify(DEFAULT_USERS));
     return DEFAULT_USERS;
 }
@@ -29,7 +48,14 @@ export function AuthProvider({ children }) {
         return saved ? JSON.parse(saved) : null;
     });
 
-    // Sync to sessionStorage whenever currentUser changes
+    // Force re-render when role permissions change
+    const [, setPermTick] = useState(0);
+    useEffect(() => {
+        const handler = () => setPermTick(t => t + 1);
+        window.addEventListener('rolePermissionsUpdated', handler);
+        return () => window.removeEventListener('rolePermissionsUpdated', handler);
+    }, []);
+
     useEffect(() => {
         if (currentUser) {
             sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -55,7 +81,6 @@ export function AuthProvider({ children }) {
 
     const signup = useCallback((name, email, password) => {
         const users = getUsers();
-        // Check if email already exists
         if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
             return { success: false, error: 'Email sudah terdaftar' };
         }
@@ -65,7 +90,7 @@ export function AuthProvider({ children }) {
             name,
             email,
             password,
-            role: 'Project Manager', // Default role for new signups
+            role: 'Project Manager',
             status: 'Active',
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
         };
@@ -85,9 +110,10 @@ export function AuthProvider({ children }) {
     const hasPermission = useCallback((permission) => {
         if (!currentUser) return false;
         const role = currentUser.role;
-        const perms = ROLE_PERMISSIONS[role];
+        const rolePerms = getRolePermissions();
+        const perms = rolePerms[role];
         if (!perms) {
-            // Unknown/custom role — give basic access (like PM but no user management, no full keuangan)
+            // Unknown role — basic access only
             return permission !== 'view_users' && permission !== 'view_all_projects' && permission !== 'view_keuangan';
         }
         return perms.includes(permission);
