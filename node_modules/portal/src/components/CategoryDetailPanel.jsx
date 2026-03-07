@@ -77,6 +77,22 @@ export default function CategoryDetailPanel({ category, isOpen, onClose, onUpdat
             const allSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
             const updatedSubs = allSubs.filter(s => s.id !== id);
             localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
+
+            // Fix orphaned materials: clear subCategory reference
+            const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+            let materialsChanged = false;
+            const updatedMaterials = savedMaterials.map((m) => {
+                if (m.subCategoryId === id || String(m.subCategoryId) === String(id)) {
+                    materialsChanged = true;
+                    return { ...m, subCategoryId: '', subCategory: '' };
+                }
+                return m;
+            });
+            if (materialsChanged) {
+                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
+                window.dispatchEvent(new Event("storage"));
+            }
+
             loadData();
             if (onUpdate) onUpdate();
         }

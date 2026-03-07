@@ -31,8 +31,14 @@ export default function AddAssetModal({ isOpen, onClose, onSave }) {
             setCategories(catData);
             setSubCategories(subData);
 
-            // Auto-lock category to 'Aset'
-            const asetCat = catData.find(c => c.name.toLowerCase() === 'aset');
+            // Auto-lock category to 'Aset' — self-healing: create if missing
+            let asetCat = catData.find(c => c.name.toLowerCase() === 'aset');
+            if (!asetCat) {
+                asetCat = { id: `SYS-ASET-${Date.now()}`, name: 'Aset', icon: 'inventory_2' };
+                catData.push(asetCat);
+                localStorage.setItem("categories", JSON.stringify(catData));
+                setCategories([...catData]);
+            }
 
             setIsVisible(true);
             setTimeout(() => setAnimateIn(true), 10);

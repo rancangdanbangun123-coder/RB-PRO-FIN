@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import * as XLSX from "xlsx";
 import CategoryDetailPanel from "../components/CategoryDetailPanel";
+import ReassignCategoryModal from "../components/ReassignCategoryModal";
 import Sidebar from "../components/Sidebar";
 
 export default function CategoryList() {
@@ -14,6 +15,16 @@ export default function CategoryList() {
     const [isImportLinkModalOpen, setIsImportLinkModalOpen] = useState(false);
     const [importLink, setImportLink] = useState('');
     const fileInputRef = useRef(null);
+
+    // Reassign modal state
+    const [reassignModal, setReassignModal] = useState({
+        isOpen: false,
+        type: 'category', // 'category' | 'subcategory'
+        itemName: '',
+        deletingId: null,
+        affectedCount: 0,
+        availableTargets: []
+    });
 
     const toggleExpand = (id) => {
         setExpandedCategories(prev =>
@@ -42,56 +53,126 @@ export default function CategoryList() {
     }, []);
 
     const handleDelete = (id) => {
-        if (window.confirm("Apakah Anda yakin ingin menghapus kategori ini beserta semua sub-kategorinya?")) {
-            const updatedCategories = categories.filter((c) => c.id !== id);
-            localStorage.setItem("categories", JSON.stringify(updatedCategories));
+        const cat = categories.find(c => c.id === id);
+        if (!cat) return;
 
-            // Also delete related subcategories
-            const updatedSubs = subCategories.filter(s => s.categoryId !== id && s.categoryId !== id.toString());
-            localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
+        // Count affected materials
+        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+        const affectedCount = savedMaterials.filter(m => m.categoryId === id || String(m.categoryId) === String(id)).length;
 
-            // Nullify category in materials
-            const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-            let materialsChanged = false;
-            const updatedMaterials = savedMaterials.map((m) => {
-                if (m.categoryId === id || String(m.categoryId) === String(id)) {
-                    materialsChanged = true;
-                    return { ...m, categoryId: '', category: '', subCategoryId: '', subCategory: '' };
-                }
-                return m;
+        if (affectedCount > 0) {
+            // Show reassign modal
+            const otherCategories = categories
+                .filter(c => c.id !== id && c.name.toLowerCase() !== 'aset')
+                .map(c => ({ id: c.id, name: c.name }));
+            setReassignModal({
+                isOpen: true,
+                type: 'category',
+                itemName: cat.name,
+                deletingId: id,
+                affectedCount,
+                availableTargets: otherCategories
             });
-            if (materialsChanged) {
-                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-                window.dispatchEvent(new Event("storage"));
+        } else {
+            // No materials affected, just confirm and delete
+            if (window.confirm(`Hapus kategori "${cat.name}" beserta semua sub-kategorinya?`)) {
+                executeCategoryDelete(id);
             }
-
-            setCategories(updatedCategories);
-            setSubCategories(updatedSubs);
         }
     };
 
-    const handleDeleteSubcategory = (subId) => {
-        if (window.confirm("Apakah Anda yakin ingin menghapus sub-kategori ini?")) {
-            const updatedSubs = subCategories.filter(s => s.id !== subId);
-            localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
+    const executeCategoryDelete = (id, action, targetId) => {
+        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+        let materialsChanged = false;
 
-            // Nullify subCategory in materials
-            const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-            let materialsChanged = false;
-            const updatedMaterials = savedMaterials.map((m) => {
-                if (m.subCategoryId === subId || String(m.subCategoryId) === String(subId)) {
-                    materialsChanged = true;
-                    return { ...m, subCategoryId: '', subCategory: '' };
+        const updatedMaterials = savedMaterials.map((m) => {
+            if (m.categoryId === id || String(m.categoryId) === String(id)) {
+                materialsChanged = true;
+                if (action === 'reassign' && targetId) {
+                    const targetCat = categories.find(c => String(c.id) === String(targetId));
+                    return { ...m, categoryId: String(targetId), category: targetCat ? targetCat.name : '', subCategoryId: '', subCategory: '' };
                 }
-                return m;
-            });
-            if (materialsChanged) {
-                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-                window.dispatchEvent(new Event("storage"));
+                // Clear
+                return { ...m, categoryId: '', category: '', subCategoryId: '', subCategory: '' };
             }
+            return m;
+        });
 
-            setSubCategories(updatedSubs);
+        if (materialsChanged) {
+            localStorage.setItem("materials", JSON.stringify(updatedMaterials));
+            window.dispatchEvent(new Event("storage"));
         }
+
+        const updatedCategories = categories.filter((c) => c.id !== id);
+        localStorage.setItem("categories", JSON.stringify(updatedCategories));
+
+        const updatedSubs = subCategories.filter(s => s.categoryId !== id && s.categoryId !== id.toString());
+        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
+
+        setCategories(updatedCategories);
+        setSubCategories(updatedSubs);
+    };
+
+    const handleDeleteSubcategory = (subId) => {
+        const sub = subCategories.find(s => s.id === subId);
+        if (!sub) return;
+
+        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+        const affectedCount = savedMaterials.filter(m => m.subCategoryId === subId || String(m.subCategoryId) === String(subId)).length;
+
+        if (affectedCount > 0) {
+            // Find sibling subcategories (same parent category)
+            const siblingSubCategories = subCategories
+                .filter(s => s.id !== subId && (s.categoryId === sub.categoryId || String(s.categoryId) === String(sub.categoryId)))
+                .map(s => ({ id: s.id, name: s.name }));
+            setReassignModal({
+                isOpen: true,
+                type: 'subcategory',
+                itemName: sub.name,
+                deletingId: subId,
+                affectedCount,
+                availableTargets: siblingSubCategories
+            });
+        } else {
+            if (window.confirm(`Hapus sub-kategori "${sub.name}"?`)) {
+                executeSubcategoryDelete(subId);
+            }
+        }
+    };
+
+    const executeSubcategoryDelete = (subId, action, targetId) => {
+        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
+        let materialsChanged = false;
+
+        const updatedMaterials = savedMaterials.map((m) => {
+            if (m.subCategoryId === subId || String(m.subCategoryId) === String(subId)) {
+                materialsChanged = true;
+                if (action === 'reassign' && targetId) {
+                    const targetSub = subCategories.find(s => String(s.id) === String(targetId));
+                    return { ...m, subCategoryId: String(targetId), subCategory: targetSub ? targetSub.name : '' };
+                }
+                return { ...m, subCategoryId: '', subCategory: '' };
+            }
+            return m;
+        });
+
+        if (materialsChanged) {
+            localStorage.setItem("materials", JSON.stringify(updatedMaterials));
+            window.dispatchEvent(new Event("storage"));
+        }
+
+        const updatedSubs = subCategories.filter(s => s.id !== subId);
+        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
+        setSubCategories(updatedSubs);
+    };
+
+    const handleReassignConfirm = (action, targetId) => {
+        if (reassignModal.type === 'category') {
+            executeCategoryDelete(reassignModal.deletingId, action, targetId);
+        } else {
+            executeSubcategoryDelete(reassignModal.deletingId, action, targetId);
+        }
+        setReassignModal(prev => ({ ...prev, isOpen: false }));
     };
 
     const processImportedData = (jsonData) => {
@@ -322,13 +403,22 @@ export default function CategoryList() {
                                                     >
                                                         <span className="material-icons-round">settings</span>
                                                     </button>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(cat.id); }}
-                                                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                                        title="Delete Category"
-                                                    >
-                                                        <span className="material-icons-round">delete</span>
-                                                    </button>
+                                                    {cat.name.toLowerCase() !== 'aset' ? (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleDelete(cat.id); }}
+                                                            className="p-1.5 text-slate-400 hover:text-red-500 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                                            title="Delete Category"
+                                                        >
+                                                            <span className="material-icons-round">delete</span>
+                                                        </button>
+                                                    ) : (
+                                                        <span
+                                                            className="p-1.5 text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                                                            title="Kategori sistem, tidak dapat dihapus"
+                                                        >
+                                                            <span className="material-icons-round">lock</span>
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <span className={`material-icons-round text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
                                                     expand_more
@@ -410,6 +500,17 @@ export default function CategoryList() {
                         setSubCategories(updatedSubs);
                         // Also refresh categories if needed, but mainly subcats change
                     }}
+                />
+
+                {/* Reassign Category Modal */}
+                <ReassignCategoryModal
+                    isOpen={reassignModal.isOpen}
+                    onClose={() => setReassignModal(prev => ({ ...prev, isOpen: false }))}
+                    onConfirm={handleReassignConfirm}
+                    type={reassignModal.type}
+                    itemName={reassignModal.itemName}
+                    affectedCount={reassignModal.affectedCount}
+                    availableTargets={reassignModal.availableTargets}
                 />
             </main>
             {/* Import Link Modal */}
