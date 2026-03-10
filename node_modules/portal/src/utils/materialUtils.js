@@ -72,34 +72,40 @@ export const updateMaterialsWithNewPrefixes = (materials, newCategoryName = null
     };
 };
 
-export const cascadeSubcontractorMaterialIds = (oldToNewIdMap) => {
+import { api } from '../lib/api';
+
+export const cascadeSubcontractorMaterialIds = async (oldToNewIdMap) => {
     if (Object.keys(oldToNewIdMap).length === 0) return;
 
-    const subconsJSON = localStorage.getItem('subcontractors');
-    if (!subconsJSON) return;
+    try {
+        let subcons = await api.subcontractors.list();
+        if (!subcons || subcons.length === 0) return;
 
-    let subcons = JSON.parse(subconsJSON);
-    let subconChanged = false;
+        let subconChanged = false;
 
-    subcons = subcons.map(sub => {
-        if (!sub.suppliedMaterials) return sub;
-        let smChanged = false;
-        const newSupplied = sub.suppliedMaterials.map(sm => {
-            if (oldToNewIdMap[sm.materialId]) {
-                smChanged = true;
-                return { ...sm, materialId: oldToNewIdMap[sm.materialId] };
+        subcons = subcons.map(sub => {
+            if (!sub.suppliedMaterials) return sub;
+            let smChanged = false;
+            const newSupplied = sub.suppliedMaterials.map(sm => {
+                if (oldToNewIdMap[sm.materialId]) {
+                    smChanged = true;
+                    return { ...sm, materialId: oldToNewIdMap[sm.materialId] };
+                }
+                return sm;
+            });
+            if (smChanged) {
+                subconChanged = true;
+                return { ...sub, suppliedMaterials: newSupplied };
             }
-            return sm;
+            return sub;
         });
-        if (smChanged) {
-            subconChanged = true;
-            return { ...sub, suppliedMaterials: newSupplied };
-        }
-        return sub;
-    });
 
-    if (subconChanged) {
-        localStorage.setItem('subcontractors', JSON.stringify(subcons));
-        window.dispatchEvent(new Event('storage'));
+        if (subconChanged) {
+            for (const sub of subcons) {
+                await api.subcontractors.update(sub.id, sub);
+            }
+        }
+    } catch (err) {
+        console.error('Failed to cascade subcontractor material IDs:', err);
     }
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import SearchableSelect from '../components/SearchableSelect';
+import { api } from '../lib/api';
 
 export default function SubCategoryCreate() {
     const [categories, setCategories] = useState([]);
@@ -13,40 +14,29 @@ export default function SubCategoryCreate() {
     const [name, setName] = useState("");
 
     useEffect(() => {
-        const data = JSON.parse(localStorage.getItem("categories")) || [];
-        setCategories(data);
+        (async () => {
+            try {
+                const data = await api.categories.list();
+                const cats = Array.isArray(data) ? data : (data.categories || []);
+                setCategories(cats);
+            } catch (err) { console.error(err); }
+        })();
 
-        // Auto-fill from navigation state if available
         if (location.state?.categoryId) {
             setCategoryId(location.state.categoryId);
         }
     }, [location.state]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!categoryId || !name.trim()) return;
 
-        const existingSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-
-        // Check for duplicates within the same category
-        const isDuplicate = existingSubs.some(
-            (sub) => sub.categoryId === categoryId && sub.name.toLowerCase() === name.trim().toLowerCase()
-        );
-
-        if (isDuplicate) {
-            alert("Sub-kategori dengan nama ini sudah ada di kategori tersebut!");
-            return;
+        try {
+            await api.categories.createSub({ categoryId, name: name.trim() });
+            navigate('/category');
+        } catch (err) {
+            alert(err.message || "Gagal membuat sub-kategori.");
         }
-
-        const newSub = {
-            id: Date.now(),
-            categoryId,
-            name: name.trim()
-        };
-
-        localStorage.setItem("subCategories", JSON.stringify([...existingSubs, newSub]));
-        navigate('/category');
     };
 
     return (

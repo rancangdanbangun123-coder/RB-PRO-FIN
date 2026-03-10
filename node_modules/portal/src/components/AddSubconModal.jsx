@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MATERIAL_DATABASE } from '../data/materialData';
+import { api } from '../lib/api';
 
 export default function AddSubconModal({ isOpen, onClose, onSave, initialData }) {
     const [formData, setFormData] = useState({
@@ -19,13 +19,18 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
     const [selectedMaterials, setSelectedMaterials] = useState([]);
 
     // Dynamic Types
-    const [availableTypes, setAvailableTypes] = useState(() => {
-        const saved = localStorage.getItem('subcontractorTypes');
-        return saved ? JSON.parse(saved) : ['Sipil', 'MEP', 'Arsitektur', 'Interior', 'Material Supplier', 'Struktural', 'Logistik Umum', 'Supplier Beton'];
-    });
+    const [availableTypes, setAvailableTypes] = useState(['Sipil', 'MEP', 'Arsitektur', 'Interior', 'Material Supplier', 'Struktural', 'Logistik Umum', 'Supplier Beton']);
+    const [materialDatabase, setMaterialDatabase] = useState([]);
 
     React.useEffect(() => {
         if (isOpen) {
+            // Load materials from API
+            (async () => {
+                try {
+                    const mats = await api.materials.list();
+                    setMaterialDatabase(mats || []);
+                } catch (e) { console.error(e); }
+            })();
             if (initialData) {
                 setFormData({
                     ...initialData
@@ -70,7 +75,6 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
         if (formData.type && !availableTypes.includes(formData.type)) {
             const newTypes = [...availableTypes, formData.type];
             setAvailableTypes(newTypes);
-            localStorage.setItem('subcontractorTypes', JSON.stringify(newTypes));
         }
 
         // Merge initialData to ensure ID is preserved when editing
@@ -232,13 +236,13 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
                                                 const val = e.target.value;
                                                 const priceInput = document.getElementById('starter-material-price');
                                                 if (val && priceInput) {
-                                                    const material = MATERIAL_DATABASE.find(m => m.id === val);
+                                                    const material = materialDatabase.find(m => m.id === val);
                                                     if (material) priceInput.value = material.price;
                                                 }
                                             }}
                                         >
                                             <option value="">-- Pilih Material --</option>
-                                            {MATERIAL_DATABASE.filter(m => !selectedMaterials.some(sm => sm.materialId === m.id)).map(m => (
+                                            {materialDatabase.filter(m => !selectedMaterials.some(sm => sm.materialId === m.id)).map(m => (
                                                 <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
                                             ))}
                                         </select>
@@ -260,7 +264,7 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
                                             const priceVal = priceInput.value;
 
                                             if (val && priceVal) {
-                                                const material = MATERIAL_DATABASE.find(m => m.id === val);
+                                                const material = materialDatabase.find(m => m.id === val);
                                                 setSelectedMaterials(prev => [...prev, {
                                                     materialId: val,
                                                     price: parseInt(priceVal), // Use input price
@@ -279,7 +283,7 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
                                 {selectedMaterials.length > 0 && (
                                     <div className="space-y-2 bg-slate-50 dark:bg-background-dark p-3 rounded-lg border border-slate-200 dark:border-slate-700 max-h-40 overflow-y-auto custom-scrollbar">
                                         {selectedMaterials.map((item, idx) => {
-                                            const mat = MATERIAL_DATABASE.find(m => m.id === item.materialId);
+                                            const mat = materialDatabase.find(m => m.id === item.materialId);
                                             return (
                                                 <div key={idx} className="flex items-center justify-between text-sm bg-white dark:bg-card-dark p-2 rounded border border-slate-100 dark:border-slate-700/50">
                                                     <div>

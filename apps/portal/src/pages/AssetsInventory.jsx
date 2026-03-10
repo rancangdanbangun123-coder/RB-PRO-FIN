@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ASSET_DATABASE } from '../data/assetData';
-import { ASSET_REQUESTS } from '../data/assetRequestData';
+import { api } from '../lib/api';
 import EditAssetModal from '../components/EditAssetModal';
 import RequestAssetModal from '../components/RequestAssetModal';
 import AddAssetModal from '../components/AddAssetModal';
@@ -9,37 +8,26 @@ import Sidebar from '../components/Sidebar';
 import SisaMaterialTab from '../components/SisaMaterialTab';
 
 export default function AssetsInventory() {
-    const [assets, setAssets] = useState(() => {
-        const saved = localStorage.getItem('assets');
-        return saved ? JSON.parse(saved) : ASSET_DATABASE;
-    });
+    const [assets, setAssets] = useState([]);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [requests, setRequests] = useState(() => {
-        const saved = localStorage.getItem('assetRequests');
-        return saved ? JSON.parse(saved) : ASSET_REQUESTS;
-    });
-    const [selectedAsset, setSelectedAsset] = useState(() => {
-        const saved = localStorage.getItem('assets');
-        const parsedAssets = saved ? JSON.parse(saved) : ASSET_DATABASE;
-        return parsedAssets[0] || null;
-    });
-    const [selectedItems, setSelectedItems] = useState([]); // Bulk select state
-    const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'requests'
+    const [requests, setRequests] = useState([]);
+    const [selectedAsset, setSelectedAsset] = useState(null);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [activeTab, setActiveTab] = useState('inventory');
 
     React.useEffect(() => {
-        localStorage.setItem('assets', JSON.stringify(assets));
-        // Also update selectedAsset if it's currently selected to reflect changes deeply
-        if (selectedAsset) {
-            const updatedSelected = assets.find(a => a.id === selectedAsset.id);
-            if (updatedSelected) {
-                setSelectedAsset(updatedSelected);
-            }
-        }
-    }, [assets]);
-
-    React.useEffect(() => {
-        localStorage.setItem('assetRequests', JSON.stringify(requests));
-    }, [requests]);
+        (async () => {
+            try {
+                const [assetsData, reqData] = await Promise.all([
+                    api.assets.list(),
+                    api.assets.listRequests(),
+                ]);
+                setAssets(assetsData || []);
+                setRequests(reqData || []);
+                if (assetsData && assetsData.length > 0) setSelectedAsset(assetsData[0]);
+            } catch (err) { console.error('Failed to load assets:', err); }
+        })();
+    }, []);
 
     // Derived state for pagination (mock)
     const [currentPage, setCurrentPage] = useState(1);

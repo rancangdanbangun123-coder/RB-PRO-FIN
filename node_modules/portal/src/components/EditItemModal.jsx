@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MATERIAL_DATABASE } from '../data/materialData';
-import { SUBCON_DATABASE } from '../data/subcontractorData';
+import { api } from '../lib/api';
 import SearchableSelect from './SearchableSelect';
 
 // ─── Phase Config ─────────────────────────────────────────────────────────────
@@ -23,9 +22,9 @@ function getPhaseFields(stage) {
                 { name: 'title', label: 'Nama Kartu / Judul PR', type: 'text', required: true, placeholder: 'Cth: Semen Portland 50kg' },
             ];
         case 'rfq':
-            const savedSubconsStr = localStorage.getItem('subcontractors');
-            const activeSubcons = savedSubconsStr ? JSON.parse(savedSubconsStr) : SUBCON_DATABASE;
-            const vendorOptions = activeSubcons.map(v => v.name);
+            const savedSubconsStr = null; // Will be loaded async
+            const activeSubcons = [];
+            const vendorOptions = [];
             return [
                 { name: 'due', label: 'Batas Waktu', type: 'text', required: true, placeholder: 'Cth: Besok / 24 Okt' },
                 { name: 'targetVendors', label: 'Target Vendors', type: 'multiselect', required: true, options: vendorOptions }
@@ -99,9 +98,17 @@ export default function EditItemModal({ isOpen, onClose, item, onSubmit }) {
             setIsVisible(true);
             setTimeout(() => setAnimateIn(true), 10);
 
-            // Init material db
-            const savedMats = localStorage.getItem('materials');
-            setMaterialDatabase(savedMats ? JSON.parse(savedMats) : MATERIAL_DATABASE);
+            // Init material db from API
+            (async () => {
+                try {
+                    const [mats, subs] = await Promise.all([
+                        api.materials.list(),
+                        api.subcontractors.list(),
+                    ]);
+                    setMaterialDatabase(mats || []);
+                    // Update vendor options for RFQ phase fields dynamically 
+                } catch (e) { console.error('Failed to load data for EditItemModal:', e); }
+            })();
 
             // Check if it has rawItems (from PR combine or single form creation)
             if (item.rawItems && item.rawItems.length > 0) {
@@ -604,9 +611,6 @@ export default function EditItemModal({ isOpen, onClose, item, onSubmit }) {
                                                                     onChange={e => handlePhaseDataChange(field.name, e.target.value)}
                                                                 >
                                                                     <option value="" disabled>Pilih Vendor dari Database...</option>
-                                                                    {SUBCON_DATABASE.map(sub => (
-                                                                        <option key={sub.id} value={sub.name}>{sub.name}</option>
-                                                                    ))}
                                                                 </select>
                                                             )}
                                                         </>

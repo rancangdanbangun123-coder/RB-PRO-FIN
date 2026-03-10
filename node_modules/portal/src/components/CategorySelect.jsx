@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { api } from '../lib/api';
 
 export default function CategorySelect({ value, onChange }) {
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        const data = JSON.parse(localStorage.getItem("categories")) || [];
-        setCategories(data);
+        (async () => {
+            try {
+                const allCats = await api.categories.list();
+                setCategories((allCats || []).filter(c => !c.categoryId));
+            } catch (e) { console.error(e); }
+        })();
     }, []);
 
     return (

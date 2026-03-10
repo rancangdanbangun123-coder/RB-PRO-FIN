@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect';
-import { MATERIAL_DATABASE } from '../data/materialData';
+import { api } from '../lib/api';
 
 export default function AddBudgetModal({ isOpen, onClose, onSave, initialData }) {
     const [categories, setCategories] = useState([]);
@@ -17,51 +17,59 @@ export default function AddBudgetModal({ isOpen, onClose, onSave, initialData })
         totalBudget: ''
     });
 
-    const [materials, setMaterials] = useState(() => {
-        const saved = localStorage.getItem('materials');
-        return saved ? JSON.parse(saved) : MATERIAL_DATABASE;
-    });
+    const [materials, setMaterials] = useState([]);
 
     useEffect(() => {
         if (isOpen) {
-            const storedCats = JSON.parse(localStorage.getItem('categories')) || [];
-            const storedSubs = JSON.parse(localStorage.getItem('subCategories')) || [];
+            (async () => {
+                try {
+                    const [cats, mats] = await Promise.all([
+                        api.categories.list(),
+                        api.materials.list(),
+                    ]);
+                    // categories API returns { categories: [...], subCategories: [...] } or flat array
+                    const catList = Array.isArray(cats) ? cats : (cats.categories || []);
+                    const subList = Array.isArray(cats) ? [] : (cats.subCategories || []);
 
-            // Default fallback if no categories exist
-            const finalCats = storedCats.length > 0 ? storedCats : [
-                { id: '1', name: 'MATERIAL' },
-                { id: '2', name: 'UPAH' },
-                { id: '3', name: 'ALAT' },
-                { id: '4', name: 'SUBKON' },
-                { id: '5', name: 'LAIN-LAIN' }
-            ];
+                    const finalCats = catList.length > 0 ? catList : [
+                        { id: '1', name: 'MATERIAL' },
+                        { id: '2', name: 'UPAH' },
+                        { id: '3', name: 'ALAT' },
+                        { id: '4', name: 'SUBKON' },
+                        { id: '5', name: 'LAIN-LAIN' }
+                    ];
 
-            setCategories(finalCats);
-            setSubCategories(storedSubs);
+                    setCategories(finalCats);
+                    setSubCategories(subList);
+                    setMaterials(mats || []);
 
-            if (initialData) {
-                setFormData({
-                    category: initialData.category || finalCats[0]?.name || '',
-                    subCategory: initialData.subCategory || '',
-                    name: initialData.name || '',
-                    spec: initialData.spec || '',
-                    qtyTotal: initialData.qtyTotal || '',
-                    qtyUnit: initialData.qtyUnit || 'unit',
-                    ahsPrice: initialData.ahsPrice || 0,
-                    totalBudget: initialData.totalBudget ? String(initialData.totalBudget).replace(/[^0-9]/g, '') : ''
-                });
-            } else {
-                setFormData({
-                    category: finalCats[0]?.name || '',
-                    subCategory: '', // can be left empty until selected
-                    name: '',
-                    spec: '',
-                    qtyTotal: '',
-                    qtyUnit: 'unit',
-                    ahsPrice: 0,
-                    totalBudget: ''
-                });
-            }
+                    if (initialData) {
+                        setFormData({
+                            category: initialData.category || finalCats[0]?.name || '',
+                            subCategory: initialData.subCategory || '',
+                            name: initialData.name || '',
+                            spec: initialData.spec || '',
+                            qtyTotal: initialData.qtyTotal || '',
+                            qtyUnit: initialData.qtyUnit || 'unit',
+                            ahsPrice: initialData.ahsPrice || 0,
+                            totalBudget: initialData.totalBudget ? String(initialData.totalBudget).replace(/[^0-9]/g, '') : ''
+                        });
+                    } else {
+                        setFormData({
+                            category: finalCats[0]?.name || '',
+                            subCategory: '',
+                            name: '',
+                            spec: '',
+                            qtyTotal: '',
+                            qtyUnit: 'unit',
+                            ahsPrice: 0,
+                            totalBudget: ''
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to load budget modal data:', err);
+                }
+            })();
         }
     }, [initialData, isOpen]);
 

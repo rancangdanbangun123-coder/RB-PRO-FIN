@@ -4,6 +4,7 @@ import * as XLSX from "xlsx";
 import CategoryDetailPanel from "../components/CategoryDetailPanel";
 import ReassignCategoryModal from "../components/ReassignCategoryModal";
 import Sidebar from "../components/Sidebar";
+import { api } from '../lib/api';
 
 export default function CategoryList() {
     const [categories, setCategories] = useState([]);
@@ -42,27 +43,34 @@ export default function CategoryList() {
     };
 
     useEffect(() => {
-        const catData = JSON.parse(localStorage.getItem("categories")) || [];
-        const subData = JSON.parse(localStorage.getItem("subCategories")) || [];
-        setCategories(catData);
-        setSubCategories(subData);
-        // Default expand all
-        if (catData.length > 0) {
-            setExpandedCategories(catData.map(c => c.id));
-        }
+        (async () => {
+            try {
+                const data = await api.categories.list();
+                const catData = Array.isArray(data) ? data : (data.categories || []);
+                const subData = Array.isArray(data) ? [] : (data.subCategories || []);
+                setCategories(catData);
+                setSubCategories(subData);
+                if (catData.length > 0) {
+                    setExpandedCategories(catData.map(c => c.id));
+                }
+            } catch (err) { console.error('Failed to load categories:', err); }
+        })();
     }, []);
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         const cat = categories.find(c => c.id === id);
         if (!cat) return;
 
         // Count affected materials — match by BOTH name and categoryId
-        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-        const affectedCount = savedMaterials.filter(m =>
-            m.category === cat.name ||
-            m.categoryId === id ||
-            String(m.categoryId) === String(id)
-        ).length;
+        let affectedCount = 0;
+        try {
+            const savedMaterials = await api.materials.list();
+            affectedCount = savedMaterials.filter(m =>
+                m.category === cat.name ||
+                m.categoryId === id ||
+                String(m.categoryId) === String(id)
+            ).length;
+        } catch (err) { console.error(err); }
 
         if (affectedCount > 0) {
             // Show reassign modal
@@ -85,54 +93,29 @@ export default function CategoryList() {
         }
     };
 
-    const executeCategoryDelete = (id, action, targetId) => {
-        const cat = categories.find(c => c.id === id);
-        const catName = cat ? cat.name : '';
-        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-        let materialsChanged = false;
-
-        const updatedMaterials = savedMaterials.map((m) => {
-            const isAffected = m.category === catName ||
-                m.categoryId === id ||
-                String(m.categoryId) === String(id);
-
-            if (isAffected) {
-                materialsChanged = true;
-                if (action === 'reassign' && targetId) {
-                    const targetCat = categories.find(c => String(c.id) === String(targetId));
-                    return { ...m, category: targetCat ? targetCat.name : '', categoryId: String(targetId), subCategory: '', subCategoryId: '' };
-                }
-                // Clear
-                return { ...m, category: '', categoryId: '', subCategory: '', subCategoryId: '' };
-            }
-            return m;
-        });
-
-        if (materialsChanged) {
-            localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-            window.dispatchEvent(new Event("storage"));
-        }
-
-        const updatedCategories = categories.filter((c) => c.id !== id);
-        localStorage.setItem("categories", JSON.stringify(updatedCategories));
-
-        const updatedSubs = subCategories.filter(s => s.categoryId !== id && s.categoryId !== id.toString());
-        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
-
-        setCategories(updatedCategories);
-        setSubCategories(updatedSubs);
+    const executeCategoryDelete = async (id, action, targetId) => {
+        try {
+            await api.categories.remove(id);
+            const updatedCategories = categories.filter((c) => c.id !== id);
+            const updatedSubs = subCategories.filter(s => s.categoryId !== id && s.categoryId !== id.toString());
+            setCategories(updatedCategories);
+            setSubCategories(updatedSubs);
+        } catch (err) { console.error('Failed to delete category:', err); }
     };
 
-    const handleDeleteSubcategory = (subId) => {
+    const handleDeleteSubcategory = async (subId) => {
         const sub = subCategories.find(s => s.id === subId);
         if (!sub) return;
 
-        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-        const affectedCount = savedMaterials.filter(m =>
-            m.subCategory === sub.name ||
-            m.subCategoryId === subId ||
-            String(m.subCategoryId) === String(subId)
-        ).length;
+        let affectedCount = 0;
+        try {
+            const savedMaterials = await api.materials.list();
+            affectedCount = savedMaterials.filter(m =>
+                m.subCategory === sub.name ||
+                m.subCategoryId === subId ||
+                String(m.subCategoryId) === String(subId)
+            ).length;
+        } catch (err) { console.error(err); }
 
         if (affectedCount > 0) {
             // Find sibling subcategories (same parent category)
@@ -154,36 +137,12 @@ export default function CategoryList() {
         }
     };
 
-    const executeSubcategoryDelete = (subId, action, targetId) => {
-        const sub = subCategories.find(s => s.id === subId);
-        const subName = sub ? sub.name : '';
-        const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-        let materialsChanged = false;
-
-        const updatedMaterials = savedMaterials.map((m) => {
-            const isAffected = m.subCategory === subName ||
-                m.subCategoryId === subId ||
-                String(m.subCategoryId) === String(subId);
-
-            if (isAffected) {
-                materialsChanged = true;
-                if (action === 'reassign' && targetId) {
-                    const targetSub = subCategories.find(s => String(s.id) === String(targetId));
-                    return { ...m, subCategory: targetSub ? targetSub.name : '', subCategoryId: String(targetId) };
-                }
-                return { ...m, subCategory: '', subCategoryId: '' };
-            }
-            return m;
-        });
-
-        if (materialsChanged) {
-            localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-            window.dispatchEvent(new Event("storage"));
-        }
-
-        const updatedSubs = subCategories.filter(s => s.id !== subId);
-        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
-        setSubCategories(updatedSubs);
+    const executeSubcategoryDelete = async (subId, action, targetId) => {
+        try {
+            await api.categories.removeSub(subId);
+            const updatedSubs = subCategories.filter(s => s.id !== subId);
+            setSubCategories(updatedSubs);
+        } catch (err) { console.error('Failed to delete subcategory:', err); }
     };
 
     const handleReassignConfirm = (action, targetId) => {
@@ -195,7 +154,7 @@ export default function CategoryList() {
         setReassignModal(prev => ({ ...prev, isOpen: false }));
     };
 
-    const processImportedData = (jsonData) => {
+    const processImportedData = async (jsonData) => {
         if (jsonData.length === 0) {
             alert("Data kosong atau tidak valid.");
             return;
@@ -245,8 +204,9 @@ export default function CategoryList() {
         if (addedCats > 0 || addedSubs > 0) {
             setCategories(newCategories);
             setSubCategories(newSubCategories);
-            localStorage.setItem("categories", JSON.stringify(newCategories));
-            localStorage.setItem("subCategories", JSON.stringify(newSubCategories));
+            try {
+                await api.categories.import({ categories: newCategories, subCategories: newSubCategories });
+            } catch (err) { console.error('Failed to import:', err); }
             alert(`Berhasil mengimpor! Menambahkan ${addedCats} Kategori baru dan ${addedSubs} Sub-kategori baru.`);
             setExpandedCategories(newCategories.map(c => c.id));
         } else {
@@ -514,11 +474,12 @@ export default function CategoryList() {
                     category={selectedCategory}
                     isOpen={!!selectedCategory}
                     onClose={() => setSelectedCategory(null)}
-                    onUpdate={() => {
-                        // Refresh data after edit/delete in panel
-                        const updatedSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-                        setSubCategories(updatedSubs);
-                        // Also refresh categories if needed, but mainly subcats change
+                    onUpdate={async () => {
+                        try {
+                            const data = await api.categories.list();
+                            const subData = Array.isArray(data) ? [] : (data.subCategories || []);
+                            setSubCategories(subData);
+                        } catch (err) { console.error(err); }
                     }}
                 />
 

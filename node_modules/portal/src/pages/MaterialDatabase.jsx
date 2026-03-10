@@ -2,65 +2,36 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import EditMaterialModal from '../components/EditMaterialModal';
 import AddMaterialModal from '../components/AddMaterialModal';
-import { MATERIAL_DATABASE } from '../data/materialData';
-import { SUBCON_DATABASE } from '../data/subcontractorData';
+import { api } from '../lib/api';
 import * as XLSX from 'xlsx';
 import Sidebar from '../components/Sidebar';
 import SearchableSelect from '../components/SearchableSelect';
-import { generateMaterialId, updateMaterialsWithNewPrefixes, cascadeSubcontractorMaterialIds } from '../utils/materialUtils';
+import { generateMaterialId, updateMaterialsWithNewPrefixes } from '../utils/materialUtils';
 
 export default function MaterialDatabase() {
-    const [materials, setMaterials] = useState(() => {
-        const saved = localStorage.getItem('materials');
-        if (saved) return JSON.parse(saved);
-        // If no saved materials, initialize with MATERIAL_DATABASE and put it in local storage
-        localStorage.setItem('materials', JSON.stringify(MATERIAL_DATABASE));
-        return MATERIAL_DATABASE;
-    });
+    const [materials, setMaterials] = useState([]);
     const [categories, setCategories] = useState([]);
     const [subCategories, setSubCategories] = useState([]);
-    // Initialize from localStorage or empty object
-    const [excludedSuppliers, setExcludedSuppliers] = useState(() => {
-        const saved = localStorage.getItem('excludedSuppliers');
-        return saved ? JSON.parse(saved) : {};
-    });
-
-    const [subcons, setSubcons] = useState(() => {
-        const saved = localStorage.getItem('subcontractors');
-        return saved ? JSON.parse(saved) : SUBCON_DATABASE;
-    });
-
+    const [excludedSuppliers, setExcludedSuppliers] = useState({});
+    const [subcons, setSubcons] = useState([]);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // Persist to localStorage whenever it changes
     useEffect(() => {
-        localStorage.setItem('excludedSuppliers', JSON.stringify(excludedSuppliers));
-    }, [excludedSuppliers]);
-
-    useEffect(() => {
-        const catData = JSON.parse(localStorage.getItem("categories")) || [];
-        const subData = JSON.parse(localStorage.getItem("subCategories")) || [];
-        setCategories(catData);
-        setSubCategories(subData);
-    }, []);
-
-    // Listen to storage events to sync cross-page category renames
-    useEffect(() => {
-        const handleStorageChange = () => {
-            const savedMats = localStorage.getItem('materials');
-            if (savedMats) setMaterials(JSON.parse(savedMats));
-
-            const savedCats = localStorage.getItem('categories');
-            if (savedCats) setCategories(JSON.parse(savedCats));
-
-            const savedSubs = localStorage.getItem('subCategories');
-            if (savedSubs) setSubCategories(JSON.parse(savedSubs));
-
-            const savedSubcons = localStorage.getItem('subcontractors');
-            if (savedSubcons) setSubcons(JSON.parse(savedSubcons));
-        };
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        (async () => {
+            try {
+                const [mats, cats, subs] = await Promise.all([
+                    api.materials.list(),
+                    api.categories.list(),
+                    api.subcontractors.list(),
+                ]);
+                setMaterials(mats || []);
+                const catList = Array.isArray(cats) ? cats : (cats.categories || []);
+                const subList = Array.isArray(cats) ? [] : (cats.subCategories || []);
+                setCategories(catList);
+                setSubCategories(subList);
+                setSubcons(subs || []);
+            } catch (err) { console.error('Failed to load material data:', err); }
+        })();
     }, []);
 
     // Price Rollup Logic - Derived State
@@ -178,7 +149,7 @@ export default function MaterialDatabase() {
         }
     };
 
-    const handleAddSupplierSubmit = (e) => {
+    const handleAddSupplierSubmit = async (e) => {
         e.preventDefault();
         if (!selectedMaterial) return;
 
@@ -206,7 +177,12 @@ export default function MaterialDatabase() {
         });
 
         setSubcons(updatedSubcons);
-        localStorage.setItem('subcontractors', JSON.stringify(updatedSubcons));
+        // Persist updated subcontractor via API
+        try {
+            const subconId = newSupplierData.subconId;
+            const sub = updatedSubcons.find(s => s.id === subconId);
+            if (sub) await api.subcontractors.update(subconId, sub);
+        } catch (err) { console.error('Failed to update subcontractor:', err); }
 
         setIsAddSupplierModalOpen(false);
         setNewSupplierData({ subconId: '', price: '' });
@@ -223,15 +199,13 @@ export default function MaterialDatabase() {
 
             const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(newMats);
 
-            localStorage.setItem('materials', JSON.stringify(updatedMaterials));
-
-            if (hasChanges) {
-                cascadeSubcontractorMaterialIds(oldToNewIdMap);
-                if (oldToNewIdMap[updatedMaterial.id]) {
-                    newActiveId = oldToNewIdMap[updatedMaterial.id];
-                    finalUpdatedMaterial.id = newActiveId;
-                }
+            if (hasChanges && oldToNewIdMap[updatedMaterial.id]) {
+                newActiveId = oldToNewIdMap[updatedMaterial.id];
+                finalUpdatedMaterial.id = newActiveId;
             }
+
+            // Save via API
+            try { api.materials.update(updatedMaterial.id, finalUpdatedMaterial); } catch (e) { console.error(e); }
 
             return updatedMaterials;
         });
@@ -256,7 +230,8 @@ export default function MaterialDatabase() {
         };
         setMaterials(prev => {
             const newMats = [materialWithId, ...prev];
-            localStorage.setItem('materials', JSON.stringify(newMats));
+            // Save via API
+            try { api.materials.create(materialWithId); } catch (e) { console.error(e); }
             return newMats;
         });
         setIsAddModalOpen(false);
@@ -266,7 +241,8 @@ export default function MaterialDatabase() {
         if (window.confirm('Apakah Anda yakin ingin menghapus material ini?')) {
             setMaterials(prev => {
                 const newMats = prev.filter(item => item.id !== id);
-                localStorage.setItem('materials', JSON.stringify(newMats));
+                // Delete via API
+                try { api.materials.remove(id); } catch (e) { console.error(e); }
                 return newMats;
             });
             if (selectedMaterial && selectedMaterial.id === id) {
@@ -281,7 +257,8 @@ export default function MaterialDatabase() {
         if (window.confirm(`Apakah Anda yakin ingin menghapus ${selectedItems.length} material yang dipilih?`)) {
             setMaterials(prev => {
                 const newMats = prev.filter(item => !selectedItems.includes(item.id));
-                localStorage.setItem('materials', JSON.stringify(newMats));
+                // Bulk delete via API
+                selectedItems.forEach(id => { try { api.materials.remove(id); } catch (e) { console.error(e); } });
                 return newMats;
             });
             if (selectedMaterial && selectedItems.includes(selectedMaterial.id)) {
@@ -373,10 +350,8 @@ export default function MaterialDatabase() {
             setMaterials(prev => {
                 const combinedMats = [...newMaterials, ...prev];
                 const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(combinedMats);
-                localStorage.setItem('materials', JSON.stringify(updatedMaterials));
-                if (hasChanges) {
-                    cascadeSubcontractorMaterialIds(oldToNewIdMap);
-                }
+                // Import via API
+                try { api.materials.import(newMaterials); } catch (e) { console.error(e); }
                 return updatedMaterials;
             });
             resultMessage += `Berhasil mengimpor! Menambahkan ${addedMats} Item Material baru.\n\n`;

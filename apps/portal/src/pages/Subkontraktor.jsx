@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-
-import { SUBCON_DATABASE } from '../data/subcontractorData';
-import { MATERIAL_DATABASE } from '../data/materialData';
-import { projects as PROJECT_DATA } from '../data/projectData';
-
-
-
+import { api } from '../lib/api';
 import AddSupplyModal from '../components/AddSupplyModal';
 import AddSubconModal from '../components/AddSubconModal';
 import Sidebar from '../components/Sidebar';
@@ -15,42 +9,38 @@ import { useAuth } from '../context/AuthContext';
 export default function Subkontraktor() {
     const { currentUser } = useAuth();
     const location = useLocation();
-    const [subcons, setSubcons] = useState(() => {
-        const saved = localStorage.getItem('subcontractors');
-        return saved ? JSON.parse(saved) : SUBCON_DATABASE;
-    });
-    const [selectedSubcon, setSelectedSubcon] = useState(subcons[0]);
+    const [subcons, setSubcons] = useState([]);
+    const [selectedSubcon, setSelectedSubcon] = useState(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('catalog');
     const [transactions, setTransactions] = useState([]);
+    const [projectsList, setProjectsList] = useState([]);
 
-    useEffect(() => {
-        const savedTrxs = localStorage.getItem('transactions');
-        if (savedTrxs) {
-            setTransactions(JSON.parse(savedTrxs));
-        }
-    }, []);
-
-    const [subconListTab, setSubconListTab] = useState('directory'); // 'directory' | 'registration'
+    const [subconListTab, setSubconListTab] = useState('directory');
     const [isAddSupplyModalOpen, setIsAddSupplyModalOpen] = useState(false);
     const [isAddSubconModalOpen, setIsAddSubconModalOpen] = useState(false);
     const [editingSupply, setEditingSupply] = useState(null);
     const [editingSubconData, setEditingSubconData] = useState(null);
-    const [exclusions, setExclusions] = useState(() => {
-        const stored = localStorage.getItem('excludedSuppliers');
-        if (stored) return JSON.parse(stored);
-
-        // Default exclusions for "New" (Demo) Pending Subcon (CV Baja Makmur)
-        return {
-            'MAT-STR-0013': ['SUB-2022-112'],
-            'MAT-STR-0014': ['SUB-2022-112'],
-            'MAT-STR-0020': ['SUB-2022-112']
-        };
-    });
+    const [exclusions, setExclusions] = useState({});
+    const [materialsList, setMaterialsList] = useState([]);
 
     useEffect(() => {
-        localStorage.setItem('subcontractors', JSON.stringify(subcons));
-    }, [subcons]);
+        (async () => {
+            try {
+                const [subs, trxs, projs, mats] = await Promise.all([
+                    api.subcontractors.list(),
+                    api.transactions.list(),
+                    api.projects.list(),
+                    api.materials.list(),
+                ]);
+                setSubcons(subs || []);
+                setTransactions(trxs || []);
+                setProjectsList(projs || []);
+                setMaterialsList(mats || []);
+                if (subs && subs.length > 0) setSelectedSubcon(subs[0]);
+            } catch (err) { console.error('Failed to load subcontractor data:', err); }
+        })();
+    }, []);
 
     const handleToggleStatus = (materialId) => {
         const currentExclusions = { ...exclusions };
@@ -65,7 +55,7 @@ export default function Subkontraktor() {
         }
 
         setExclusions(currentExclusions);
-        localStorage.setItem('excludedSuppliers', JSON.stringify(currentExclusions));
+        // Server-side exclusion persistence can be added here
     };
 
     const handleAddClick = () => {
@@ -738,7 +728,7 @@ export default function Subkontraktor() {
                                                                     </thead>
                                                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-700 bg-white dark:bg-card-dark">
                                                                         {selectedSubcon.suppliedMaterials.map((supply, idx) => {
-                                                                            const material = MATERIAL_DATABASE.find(m => m.id === supply.materialId);
+                                                                            const material = materialsList.find(m => m.id === supply.materialId);
                                                                             if (!material) return null;
 
                                                                             // Check exclusion status from state

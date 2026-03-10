@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { projects } from '../data/projectData';
+import { api } from '../lib/api';
 import CreateProjectModal from '../components/CreateProjectModal';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
@@ -22,45 +22,23 @@ export default function Projects() {
     const [localProjects, setLocalProjects] = useState([]);
 
     useEffect(() => {
-        const loadProjects = () => {
-            const saved = localStorage.getItem('projects');
-            if (saved) {
-                setLocalProjects(JSON.parse(saved));
-            } else {
-                localStorage.setItem('projects', JSON.stringify(projects));
-                setLocalProjects(projects);
-            }
-        };
-
         loadProjects();
-
-        const handleUpdate = () => loadProjects();
-        window.addEventListener('projectsUpdated', handleUpdate);
-        return () => window.removeEventListener('projectsUpdated', handleUpdate);
+        window.addEventListener('projectsUpdated', loadProjects);
+        return () => window.removeEventListener('projectsUpdated', loadProjects);
     }, []);
+
+    async function loadProjects() {
+        try {
+            const data = await api.projects.list();
+            setLocalProjects(data);
+        } catch (err) {
+            console.error('Failed to load projects:', err);
+        }
+    }
 
     const { currentUser, hasPermission } = useAuth();
 
-    // Helper: parse IDR currency string to number
-    const parseCurrency = (str) => {
-        if (!str) return 0;
-        return Number(String(str).replace(/[^0-9-]/g, '')) || 0;
-    };
-
-    // Enrich projects with real progress & budget from localStorage
-    const enrichedProjects = useMemo(() => {
-        return localProjects.map(p => {
-            const savedProgress = localStorage.getItem(`project_progress_${p.id}`);
-            const realProgress = savedProgress !== null ? Number(savedProgress) : p.progress;
-
-            const savedBudgets = JSON.parse(localStorage.getItem(`budgetItems_${p.id}`)) || [];
-            const realValue = savedBudgets.length > 0
-                ? savedBudgets.reduce((sum, item) => sum + parseCurrency(item.totalBudget), 0)
-                : (p.value || p.budget || 0);
-
-            return { ...p, progress: realProgress, value: realValue };
-        });
-    }, [localProjects]);
+    const enrichedProjects = localProjects;
 
     // Filter projects by user role
     const userProjects = hasPermission('view_all_projects')

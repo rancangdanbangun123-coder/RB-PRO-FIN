@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import ProgressAdjuster from '../components/ProgressAdjuster';
-import { projects } from '../data/projectData';
+import { api } from '../lib/api';
 import AddBudgetModal from '../components/AddBudgetModal';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Sidebar from '../components/Sidebar';
@@ -38,17 +38,16 @@ export default function ProjectDetails() {
         setIsBudgetModalOpen(true);
     };
 
-    const handleDeleteBudget = (deleteId) => {
+    const handleDeleteBudget = async (deleteId) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus item anggaran ini?')) {
-            setBudgetItems(prev => {
-                const newList = prev.filter(item => item.id !== deleteId);
-                localStorage.setItem(`budgetItems_${id}`, JSON.stringify(newList));
-                return newList;
-            });
+            try {
+                await api.projects.removeBudget(id, deleteId);
+                setBudgetItems(prev => prev.filter(item => item.id !== deleteId));
+            } catch (err) { console.error('Failed to delete budget:', err); }
         }
     };
 
-    const handleSaveBudget = (item) => {
+    const handleSaveBudget = async (item) => {
         let updatedList;
 
         // --- MENGHILANGKAN DATA SINTETIS DARI UNBUDGETED ---
@@ -109,68 +108,59 @@ export default function ProjectDetails() {
         });
 
         setBudgetItems(updatedList);
-        localStorage.setItem(`budgetItems_${id}`, JSON.stringify(updatedList));
+        // Persist via API
+        try {
+            if (editingBudgetItem) {
+                await api.projects.updateBudget(id, item.id, item);
+            } else {
+                await api.projects.createBudget(id, item);
+            }
+        } catch (err) { console.error('Failed to save budget:', err); }
     };
 
-    const handleSaveTransaction = (newTrx) => {
+    const handleSaveTransaction = async (newTrx) => {
         const trxToSave = { ...newTrx, projectId: id };
-
-        // Save to global transactions
-        const allSavedTrxs = JSON.parse(localStorage.getItem('transactions')) || [];
-        const updatedAllTrxs = [trxToSave, ...allSavedTrxs];
-        localStorage.setItem('transactions', JSON.stringify(updatedAllTrxs));
-
-        // Update local state
-        setProjectTransactions(prev => [trxToSave, ...prev]);
+        try {
+            const saved = await api.transactions.create(trxToSave);
+            setProjectTransactions(prev => [saved, ...prev]);
+        } catch (err) { console.error('Failed to save transaction:', err); }
     };
 
-    const handleDeleteTransaction = (id) => {
+    const handleDeleteTransaction = async (txId) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-            const allSavedTrxs = JSON.parse(localStorage.getItem('transactions')) || [];
-            const updatedAllTrxs = allSavedTrxs.filter(t => t.id !== id);
-            localStorage.setItem('transactions', JSON.stringify(updatedAllTrxs));
-
-            setProjectTransactions(prev => prev.filter(t => t.id !== id));
+            try {
+                await api.transactions.remove(txId);
+                setProjectTransactions(prev => prev.filter(t => t.id !== txId));
+            } catch (err) { console.error('Failed to delete transaction:', err); }
         }
     };
 
     // Initial load
     useEffect(() => {
-        const savedProjects = JSON.parse(localStorage.getItem('projects')) || projects;
-        if (savedProjects && savedProjects.length > 0) {
-            const foundProject = savedProjects.find(p => String(p.id) === String(id));
-            if (foundProject) {
-                setProject(foundProject);
+        async function loadProjectData() {
+            try {
+                const proj = await api.projects.get(id);
+                setProject(proj);
+                setProgress(proj.progress || 0);
 
-                // Load saved progress from localStorage if it exists, otherwise fallback to project data
-                const savedProgress = localStorage.getItem(`project_progress_${id}`);
-                if (savedProgress !== null) {
-                    setProgress(Number(savedProgress));
-                } else {
-                    setProgress(foundProject.progress || 0);
-                }
+                const [budgets, txns, cats, subCats, mats] = await Promise.all([
+                    api.projects.listBudgets(id),
+                    api.transactions.list(id),
+                    api.categories.list(),
+                    api.get('/categories').then(r => r).catch(() => []),
+                    api.materials.list(),
+                ]);
+
+                setBudgetItems(budgets || []);
+                setProjectTransactions(txns || []);
+                setCategories(cats || []);
+                setMaterials(mats || []);
+            } catch (err) {
+                console.error('Failed to load project:', err);
             }
+            setIsLoading(false);
         }
-
-        // Load budget items for this project
-        const savedBudgets = localStorage.getItem(`budgetItems_${id}`);
-        if (savedBudgets) {
-            setBudgetItems(JSON.parse(savedBudgets));
-        } else {
-            setBudgetItems([]);
-        }
-
-        // Load Categories for Transaction modal
-        setCategories(JSON.parse(localStorage.getItem('categories')) || []);
-        setSubCategories(JSON.parse(localStorage.getItem('subCategories')) || []);
-        setMaterials(JSON.parse(localStorage.getItem('materials')) || []);
-
-        // Load project transactions
-        const allTransactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        const filteredTrxs = allTransactions.filter(t => String(t.projectId) === String(id));
-        setProjectTransactions(filteredTrxs);
-
-        setIsLoading(false);
+        loadProjectData();
     }, [id]);
 
     // Helper: Parse currency formatted string back to number
@@ -305,12 +295,12 @@ export default function ProjectDetails() {
         return mergedItems;
     }, [budgetItems, projectTransactions, progress]);
 
-    const handleBudgetUpload = (event) => {
+    const handleBudgetUpload = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const content = e.target.result;
             const lines = content.split('\n');
             const headers = lines[0].split(',').map(h => h.trim());
@@ -349,11 +339,10 @@ export default function ProjectDetails() {
             }
 
             if (newItems.length > 0) {
-                setBudgetItems(prev => {
-                    const newList = [...prev, ...newItems];
-                    localStorage.setItem(`budgetItems_${id}`, JSON.stringify(newList));
-                    return newList;
-                });
+                setBudgetItems(prev => [...prev, ...newItems]);
+                try {
+                    await api.projects.bulkCreateBudgets(id, newItems);
+                } catch (err) { console.error('Failed to bulk import budgets:', err); }
                 alert(`Berhasil mengimport ${newItems.length} item anggaran!`);
             } else {
                 alert('Gagal mengimport data project. Pastikan format CSV benar (category,name,spec,qtyTotal,qtyUnit,totalBudget).');
@@ -362,47 +351,31 @@ export default function ProjectDetails() {
         reader.readAsText(file);
     };
 
-    const handleDeleteProject = () => {
+    const handleDeleteProject = async () => {
         if (!window.confirm(`Apakah Anda yakin ingin menghapus proyek "${project.name}" beserta semua data terkait?`)) {
             return;
         }
-
-        // [FIX] Fetch from localStorage first to preserve other changes (like previous deletions)
-        const savedProjects = localStorage.getItem('projects');
-        const currentProjects = savedProjects ? JSON.parse(savedProjects) : projects;
-
-        // Delete from projects list
-        const updatedProjects = currentProjects.filter(p => String(p.id) !== String(id));
-        localStorage.setItem('projects', JSON.stringify(updatedProjects));
-
-        // Attempt to clean up related data (optional but good practice)
-        localStorage.removeItem(`project_progress_${id}`);
-        localStorage.removeItem(`budgetItems_${id}`);
-        // Transactions cleanup
-        const allSavedTrxs = JSON.parse(localStorage.getItem('transactions')) || [];
-        const updatedTrxs = allSavedTrxs.filter(t => String(t.projectId) !== String(id));
-        localStorage.setItem('transactions', JSON.stringify(updatedTrxs));
-
-        alert('Proyek berhasil dihapus.');
-        navigate('/proyek');
+        try {
+            await api.projects.remove(id);
+            alert('Proyek berhasil dihapus.');
+            navigate('/proyek');
+        } catch (err) {
+            console.error('Failed to delete project:', err);
+            alert('Gagal menghapus proyek.');
+        }
     };
 
-    const handleStartMaintenance = () => {
+    const handleStartMaintenance = async () => {
         if (!window.confirm('Apakah Anda yakin ingin memulainya masa maintenance untuk proyek ini?')) {
             return;
         }
-
-        const savedProjects = JSON.parse(localStorage.getItem('projects')) || projects;
-        const updatedProjects = savedProjects.map(p => {
-            if (String(p.id) === String(id)) {
-                return { ...p, status: 'Maintenance' };
-            }
-            return p;
-        });
-
-        localStorage.setItem('projects', JSON.stringify(updatedProjects));
-        setProject(prev => ({ ...prev, status: 'Maintenance' }));
-        window.dispatchEvent(new Event('projectsUpdated'));
+        try {
+            await api.projects.update(id, { status: 'Maintenance' });
+            setProject(prev => ({ ...prev, status: 'Maintenance' }));
+            window.dispatchEvent(new Event('projectsUpdated'));
+        } catch (err) {
+            console.error('Failed to start maintenance:', err);
+        }
     };
 
     if (isLoading) {
@@ -523,9 +496,11 @@ export default function ProjectDetails() {
 
                                 <ProgressAdjuster
                                     initialProgress={progress}
-                                    onProgressChange={(newProgress) => {
+                                    onProgressChange={async (newProgress) => {
                                         setProgress(newProgress);
-                                        localStorage.setItem(`project_progress_${id}`, newProgress);
+                                        try {
+                                            await api.projects.updateProgress(id, newProgress);
+                                        } catch (err) { console.error('Failed to save progress:', err); }
 
                                         // Automatic Status Logic
                                         let newStatus = project.status;
@@ -534,31 +509,14 @@ export default function ProjectDetails() {
                                         } else if (newProgress >= 95) {
                                             newStatus = 'BAST-1';
                                         } else if (project.status === 'BAST-1' || project.status === 'Completed') {
-                                            // Optional: revert to Ongoing if progress drops below 95%
                                             newStatus = 'Ongoing';
                                         }
 
                                         if (newStatus !== project.status) {
-                                            const savedProjects = JSON.parse(localStorage.getItem('projects')) || projects;
-                                            const updatedProjects = savedProjects.map(p => {
-                                                if (String(p.id) === String(id)) {
-                                                    return { ...p, progress: newProgress, status: newStatus };
-                                                }
-                                                return p;
-                                            });
-                                            localStorage.setItem('projects', JSON.stringify(updatedProjects));
+                                            try {
+                                                await api.projects.update(id, { progress: newProgress, status: newStatus });
+                                            } catch (err) { console.error('Failed to update project:', err); }
                                             setProject(prev => ({ ...prev, status: newStatus, progress: newProgress }));
-                                            window.dispatchEvent(new Event('projectsUpdated'));
-                                        } else {
-                                            // Just update progress in the global list
-                                            const savedProjects = JSON.parse(localStorage.getItem('projects')) || projects;
-                                            const updatedProjects = savedProjects.map(p => {
-                                                if (String(p.id) === String(id)) {
-                                                    return { ...p, progress: newProgress };
-                                                }
-                                                return p;
-                                            });
-                                            localStorage.setItem('projects', JSON.stringify(updatedProjects));
                                             window.dispatchEvent(new Event('projectsUpdated'));
                                         }
                                     }}

@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function KanbanCard({ item, index, onClick, onDelete, onViewHistory }) {
+export default function KanbanCard({ item, index, onClick, onDelete, onViewHistory, onApprove }) {
     // Helper to determine badge colors
     const getBadgeStyle = (type) => {
         if (type.includes('Material Struktur')) return 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300 border-blue-100 dark:border-blue-800';
@@ -259,6 +259,19 @@ export default function KanbanCard({ item, index, onClick, onDelete, onViewHisto
 
                 {/* Right Side: Action Button or Status */}
                 <div>
+                    {item.stage === 'pr' && !item.approvalStatus && onApprove && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                            className="text-[10px] font-bold bg-blue-500 text-white px-2.5 py-1.5 rounded shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-1"
+                        >
+                            <span className="material-icons-round text-[14px]">verified</span> Approve
+                        </button>
+                    )}
+                    {item.stage === 'pr' && item.approvalStatus && (
+                        <span className="text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded flex items-center gap-1 border border-blue-100 dark:border-blue-800/30">
+                            <span className="material-icons-round text-[12px]">check_circle</span> Approved
+                        </span>
+                    )}
 
                     {item.stage === 'po' && (
                         <button className="text-[10px] font-medium text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors flex items-center gap-1">

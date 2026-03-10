@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CategorySelect from "../components/CategorySelect";
 import SearchableSelect from '../components/SearchableSelect';
-import { CLIENT_DATABASE } from '../data/clientData';
-import { DEFAULT_USERS } from '../data/userData';
+import { api } from '../lib/api';
 import { LOCATION_DATABASE } from '../data/locationData';
 
 export default function CreateProjectModal({ isOpen, onClose }) {
@@ -12,6 +11,7 @@ export default function CreateProjectModal({ isOpen, onClose }) {
     const [pic, setPic] = useState("");
     const [client, setClient] = useState("");
     const [pms, setPms] = useState([]);
+    const [clients, setClients] = useState([]);
     const [errorMessage, setErrorMessage] = useState("");
 
     // Hierarchical Location State
@@ -46,43 +46,34 @@ export default function CreateProjectModal({ isOpen, onClose }) {
 
     useEffect(() => {
         if (isOpen) {
-            const savedUsers = localStorage.getItem('users');
-            let parsedUsers = DEFAULT_USERS;
-            if (savedUsers) {
-                parsedUsers = JSON.parse(savedUsers);
-            }
-            const projectManagers = parsedUsers.filter(u =>
-                u.role?.trim().toLowerCase() === 'project manager' && u.status === 'Active'
-            );
-            setPms(projectManagers);
+            (async () => {
+                try {
+                    const [users, clientList] = await Promise.all([
+                        api.users.list(),
+                        api.invoices.listClients(),
+                    ]);
+                    const projectManagers = (users || []).filter(u =>
+                        u.role?.trim().toLowerCase() === 'project manager' && u.status === 'Active'
+                    );
+                    setPms(projectManagers);
+                    setClients(clientList || []);
+                } catch (err) {
+                    console.error('Failed to load modal data:', err);
+                }
+            })();
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMessage("");
 
-        // Basic format validation: must be exactly 3 digits
         if (!/^\d{3}$/.test(projectCode)) {
             setErrorMessage("Kode Proyek harus terdiri dari tepat 3 digit angka (misal: 001).");
             return;
         }
-
-        // Fetch existing projects to check for duplicates
-        const savedData = localStorage.getItem('projects');
-        const currentProjects = savedData ? JSON.parse(savedData) : [];
-
-        // Check uniqueness using the exact code (since we map it to project.id)
-        const isDuplicate = currentProjects.some(project => project.id === projectCode);
-        if (isDuplicate) {
-            setErrorMessage(`Gagal: Kode Proyek '${projectCode}' sudah digunakan oleh proyek lain.`);
-            return;
-        }
-
-        const cityObj = document.getElementById('city');
-        const districtObj = document.getElementById('district');
 
         const newProject = {
             id: projectCode,
@@ -91,7 +82,7 @@ export default function CreateProjectModal({ isOpen, onClose }) {
             location: [selectedDistrict, selectedCity, selectedProvince].filter(Boolean).join(', ') || 'Lokasi Belum Ditentukan',
             client: client || 'Internal',
             pm: pic || 'TBD',
-            status: 'Ongoing', // 'Persiapan' isn't explicitly mapped in the UI filters, so default to Ongoing
+            status: 'Ongoing',
             progress: 0,
             value: 0,
             cost: 0,
@@ -99,20 +90,16 @@ export default function CreateProjectModal({ isOpen, onClose }) {
             health: 'Good'
         };
 
-        // Append, and save
-        // We will default to empty array here; Projects.jsx will handle the initial DB seeding if needed
-        currentProjects.push(newProject);
-        localStorage.setItem('projects', JSON.stringify(currentProjects));
-
-        // Notify other components
-        window.dispatchEvent(new Event('projectsUpdated'));
-
-        // Reset form specifics on successful close
-        setProjectCode("");
-        setProjectName("");
-        setErrorMessage("");
-
-        onClose();
+        try {
+            await api.projects.create(newProject);
+            window.dispatchEvent(new Event('projectsUpdated'));
+            setProjectCode("");
+            setProjectName("");
+            setErrorMessage("");
+            onClose();
+        } catch (err) {
+            setErrorMessage(err.message || 'Gagal membuat proyek.');
+        }
     };
 
 
@@ -274,7 +261,7 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                                         value={client}
                                         onChange={(val) => setClient(val)}
                                         placeholder="Pilih Klien..."
-                                        options={CLIENT_DATABASE.map(c => ({ value: c.name, label: c.name }))}
+                                        options={clients.map(c => ({ value: c.name, label: c.name }))}
                                     />
                                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Klien belum terdaftar? <a className="text-primary hover:underline" href="#">Tambah Klien Baru</a></p>
                                 </div>

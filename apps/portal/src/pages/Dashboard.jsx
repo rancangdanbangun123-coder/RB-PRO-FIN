@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import CreateProjectModal from '../components/CreateProjectModal';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
-import { projects as PROJECT_DATA } from '../data/projectData';
+import { api } from '../lib/api';
 
 // Extract only Kota/Kabupaten from "Kecamatan, Kota, Provinsi" format
 const getDisplayLocation = (loc) => {
@@ -20,21 +20,24 @@ export default function Dashboard() {
     const { currentUser, hasPermission } = useAuth();
 
     const [localProjects, setLocalProjects] = useState([]);
+    const [allTransactions, setAllTransactions] = useState([]);
 
     useEffect(() => {
-        const saved = localStorage.getItem('projects');
-        if (saved) {
-            setLocalProjects(JSON.parse(saved));
-        } else {
-            setLocalProjects(PROJECT_DATA);
-        }
+        loadData();
     }, []);
 
-    // Helper: parse IDR currency string to number
-    const parseCurrency = (str) => {
-        if (!str) return 0;
-        return Number(String(str).replace(/[^0-9-]/g, '')) || 0;
-    };
+    async function loadData() {
+        try {
+            const [projects, txns] = await Promise.all([
+                api.projects.list(),
+                api.transactions.list(),
+            ]);
+            setLocalProjects(projects);
+            setAllTransactions(txns);
+        } catch (err) {
+            console.error('Failed to load dashboard data:', err);
+        }
+    }
 
     const formatShort = (val) => {
         if (val >= 1000000000) return `Rp ${(val / 1000000000).toFixed(1)} M`;
@@ -42,20 +45,7 @@ export default function Dashboard() {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
     };
 
-    // Enrich projects with real progress & value from localStorage
-    const enrichedProjects = useMemo(() => {
-        return localProjects.map(p => {
-            const savedProgress = localStorage.getItem(`project_progress_${p.id}`);
-            const realProgress = savedProgress !== null ? Number(savedProgress) : p.progress;
-
-            const savedBudgets = JSON.parse(localStorage.getItem(`budgetItems_${p.id}`)) || [];
-            const realValue = savedBudgets.length > 0
-                ? savedBudgets.reduce((sum, item) => sum + parseCurrency(item.totalBudget), 0)
-                : (p.value || p.budget || 0);
-
-            return { ...p, progress: realProgress, value: realValue };
-        });
-    }, [localProjects]);
+    const enrichedProjects = localProjects;
 
     // Filter projects by user role
     const userProjects = hasPermission('view_all_projects')
@@ -66,9 +56,8 @@ export default function Dashboard() {
     const { totalActiveProjects, totalPengeluaran, totalProyekWarning } = useMemo(() => {
         const active = userProjects.filter(p => p.status !== 'Completed').length;
 
-        const allTrxs = JSON.parse(localStorage.getItem('transactions')) || [];
         const userProjectIds = userProjects.map(p => p.id);
-        const relevantTrxs = allTrxs.filter(t => userProjectIds.includes(t.projectId));
+        const relevantTrxs = allTransactions.filter(t => userProjectIds.includes(t.projectId));
         const pengeluaran = relevantTrxs.filter(t => t.type === 'out').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 
         const warning = userProjects.filter(p => p.health === 'Warning' || p.health === 'Critical').length;
@@ -78,7 +67,7 @@ export default function Dashboard() {
             totalPengeluaran: pengeluaran,
             totalProyekWarning: warning
         };
-    }, [userProjects]);
+    }, [userProjects, allTransactions]);
 
     const handleProjectClick = (projectId) => {
         navigate(`/project/${projectId}`);

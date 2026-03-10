@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import Sidebar from '../components/Sidebar';
 import SearchableSelect from '../components/SearchableSelect';
-import { updateMaterialsWithNewPrefixes, cascadeSubcontractorMaterialIds } from '../utils/materialUtils';
+import { api } from '../lib/api';
 
 export default function SubCategoryEdit() {
     const { id } = useParams();
@@ -15,82 +15,35 @@ export default function SubCategoryEdit() {
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        const catData = JSON.parse(localStorage.getItem("categories")) || [];
-        setCategories(catData);
+        (async () => {
+            try {
+                const data = await api.categories.list();
+                const cats = Array.isArray(data) ? data : (data.categories || []);
+                const subs = Array.isArray(data) ? [] : (data.subCategories || []);
+                setCategories(cats);
 
-        const subData = JSON.parse(localStorage.getItem("subCategories")) || [];
-        // Support both string and number
-        const subCategory = subData.find((s) => String(s.id) === String(id));
-        const oldName = subCategory ? subCategory.name : "";
-
-        if (subCategory) {
-            setName(subCategory.name);
-            setCategoryId(subCategory.categoryId);
-        } else {
-            alert("Sub-Kategori tidak ditemukan!");
-            navigate("/category");
-        }
+                const subCategory = subs.find((s) => String(s.id) === String(id));
+                if (subCategory) {
+                    setName(subCategory.name);
+                    setCategoryId(subCategory.categoryId);
+                } else {
+                    alert("Sub-Kategori tidak ditemukan!");
+                    navigate("/category");
+                }
+            } catch (err) { console.error(err); }
+        })();
     }, [id, navigate]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!categoryId || !name.trim()) return;
 
-        const existingSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-
-        // Check for duplicates within the same category (exclude self)
-        const isDuplicate = existingSubs.some(
-            (sub) => sub.categoryId == categoryId && sub.name.toLowerCase() === name.trim().toLowerCase() && String(sub.id) !== String(id)
-        );
-
-        if (isDuplicate) {
-            alert("Sub-kategori dengan nama ini sudah ada di kategori tersebut!");
-            return;
+        try {
+            await api.categories.updateSub(id, { name: name.trim(), categoryId });
+            navigate("/category");
+        } catch (err) {
+            alert(err.message || "Gagal mengubah sub-kategori.");
         }
-
-        const updatedSubs = existingSubs.map((sub) =>
-            String(sub.id) === String(id) ? { ...sub, name: name.trim(), categoryId: categoryId } : sub
-        );
-
-        const currentSubCategory = existingSubs.find(c => String(c.id) === String(id));
-        const oldName = currentSubCategory ? currentSubCategory.name : "";
-        const allCategories = JSON.parse(localStorage.getItem("categories")) || [];
-        const newCategory = allCategories.find((c) => String(c.id) === String(categoryId));
-        const newCategoryName = newCategory ? newCategory.name : "";
-
-        const existingMaterialsJSON = localStorage.getItem("materials");
-        if (existingMaterialsJSON && typeof oldName !== "undefined") {
-            const rawMaterials = JSON.parse(existingMaterialsJSON);
-            let materialsChangedToNewName = false;
-
-            const updatedCategoryNameMaterials = rawMaterials.map((m) => {
-                if (m.subCategory === oldName || String(m.subCategoryId) === String(id)) {
-                    materialsChangedToNewName = true;
-                    return {
-                        ...m,
-                        subCategory: name.trim(),
-                        categoryId: categoryId,
-                        category: newCategoryName || m.category
-                    };
-                }
-                return m;
-            });
-
-            if (materialsChangedToNewName) {
-                const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(updatedCategoryNameMaterials);
-                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-
-                if (hasChanges) {
-                    cascadeSubcontractorMaterialIds(oldToNewIdMap);
-                }
-                window.dispatchEvent(new Event("storage"));
-            }
-        }
-        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
-
-        // If we came from a specific page like category detail panel, could use location.state.from but for now navigate to list
-        navigate("/category");
     };
 
     return (

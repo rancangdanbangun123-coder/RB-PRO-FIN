@@ -1,40 +1,23 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Sidebar from '../components/Sidebar';
+import { api } from '../lib/api';
 
 export default function CategoryCreate() {
     const [name, setName] = useState("");
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!name.trim()) return;
 
-        const existing = JSON.parse(localStorage.getItem("categories")) || [];
-
-        // Check for duplicates
-        const isDuplicate = existing.some(
-            (cat) => cat.name.toLowerCase() === name.trim().toLowerCase()
-        );
-
-        if (isDuplicate) {
-            alert("Kategori dengan nama ini sudah ada!");
-            return;
+        try {
+            await api.categories.create({ name: name.trim() });
+            navigate("/category");
+        } catch (err) {
+            alert(err.message || "Gagal membuat kategori.");
         }
-
-        const newCategory = {
-            id: Date.now(),
-            name: name.trim(),
-        };
-
-        localStorage.setItem(
-            "categories",
-            JSON.stringify([...existing, newCategory])
-        );
-
-        navigate("/category");
     };
 
     return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import { PROCUREMENT_TYPES, mapFromBoardColumn, isValidMove } from '../data/procurementFlows';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import KanbanCard from '../components/KanbanCard';
@@ -34,13 +35,14 @@ const initialData = {
     },
     columns: {
         'pr': { id: 'pr', title: 'PR (Permintaan)', itemIds: ['pr-1024', 'pr-1025'], color: 'slate', dotColor: 'bg-slate-400' },
+        'approval': { id: 'approval', title: 'Approval PR', itemIds: [], color: 'blue', dotColor: 'bg-blue-500' },
         'po': { id: 'po', title: 'PO (Pesanan)', itemIds: ['po-0012'], color: 'primary', dotColor: 'bg-primary' },
         'invoice': { id: 'invoice', title: 'Invoice', itemIds: ['inv-993', 'inv-998'], color: 'orange', dotColor: 'bg-orange-500' },
         'do': { id: 'do', title: 'DO (Diterima)', itemIds: ['do-3321'], color: 'teal', dotColor: 'bg-teal-400' },
         'evaluation': { id: 'evaluation', title: 'Evaluasi', itemIds: [], color: 'yellow', dotColor: 'bg-yellow-400' },
         'done': { id: 'done', title: 'Selesai', itemIds: ['comp-002', 'comp-001'], color: 'green', dotColor: 'bg-green-500' },
     },
-    columnOrder: ['pr', 'po', 'invoice', 'do', 'evaluation', 'done']
+    columnOrder: ['pr', 'approval', 'po', 'invoice', 'do', 'evaluation', 'done']
 };
 
 // ─── Utility: Enforce Standard Phase Structure ────────────────────────────────────
@@ -150,32 +152,50 @@ const applyPhaseStandard = (item, destPhase, formValues, isForward, isEdit = fal
 };
 
 export default function Procurement() {
-    const { currentUser } = useAuth();
+    const { currentUser, hasPermission } = useAuth();
 
-    const [data, setData] = useState(() => {
-        const saved = localStorage.getItem('procurementData');
-        return saved ? JSON.parse(saved) : initialData;
-    });
+    const [data, setData] = useState(initialData);
+    const [projectsList, setProjectsList] = useState([]);
 
     useEffect(() => {
-        localStorage.setItem('procurementData', JSON.stringify(data));
-    }, [data]);
+        (async () => {
+            try {
+                const [procData, projs] = await Promise.all([
+                    api.procurement.list().catch(() => null),
+                    api.projects.list().catch(() => []),
+                ]);
+                if (procData && procData.items) setData(procData);
+                setProjectsList(projs || []);
+            } catch (err) { console.error('Failed to load procurement:', err); }
+        })();
+    }, []);
 
-    // Cleanup legacy columns ('rfq', 'selection') if they exist in user's LocalStorage
+    // Handle legacy LocalStorage migrations (cleanup old, inject new missing columns)
     useEffect(() => {
-        if (data.columns.rfq || data.columns.selection) {
-            setData(prev => {
-                const newColumns = { ...prev.columns };
+        let needsUpdate = false;
+
+        setData(prev => {
+            let newColumns = { ...prev.columns };
+            let newOrder = [...prev.columnOrder];
+
+            // 1. Cleanup legacy columns
+            if (newColumns.rfq || newColumns.selection || newColumns.approval) {
                 delete newColumns.rfq;
                 delete newColumns.selection;
-                const newOrder = prev.columnOrder.filter(c => c !== 'rfq' && c !== 'selection');
-                return {
-                    ...prev,
-                    columns: newColumns,
-                    columnOrder: newOrder
-                };
-            });
-        }
+                delete newColumns.approval;
+                newOrder = newOrder.filter(c => c !== 'rfq' && c !== 'selection' && c !== 'approval');
+
+                // If any PRs were stuck in 'approval', move them back to 'pr'
+                if (prev.columns.approval && prev.columns.approval.itemIds?.length > 0) {
+                    if (newColumns.pr) {
+                        newColumns.pr.itemIds = [...newColumns.pr.itemIds, ...prev.columns.approval.itemIds];
+                    }
+                }
+                needsUpdate = true;
+            }
+
+            return needsUpdate ? { ...prev, columns: newColumns, columnOrder: newOrder } : prev;
+        });
     }, []);
 
     const [selectedItem, setSelectedItem] = useState(null);
@@ -188,6 +208,7 @@ export default function Procurement() {
     const [pendingTransition, setPendingTransition] = useState(null); // { draggableId, source, destination }
     const [editingItem, setEditingItem] = useState(null); // the item currently being edited inline
     const [historyModalItem, setHistoryModalItem] = useState(null);
+    const [approvalModalItem, setApprovalModalItem] = useState(null);
 
     // Extract unique projects
     const projects = ['All', ...new Set(Object.values(data.items).map(item => item.project).filter(Boolean))];
@@ -257,7 +278,59 @@ export default function Procurement() {
         }));
     };
 
+    const handleApprovePR = (itemId, decision, notes) => {
+        setData(prev => {
+            const item = prev.items[itemId];
+            if (!item) return prev;
+
+            const decisionMap = {
+                'Disetujui - Pengadaan Tim': 'major',
+                'Disetujui - Pengadaan Mandiri (Kecil)': 'minor',
+                'Disetujui - Pengadaan Aset': 'asset',
+            };
+            const newType = decisionMap[decision] || 'major';
+
+            const updatedItem = {
+                ...item,
+                procurementType: newType,
+                approvalStatus: decision,
+                approvalNotes: notes,
+                transitions: [
+                    ...(item.transitions || []),
+                    {
+                        from: item.stage,
+                        to: item.stage,
+                        date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+                        movedBy: currentUser ? { name: currentUser.name, role: currentUser.role } : { name: 'Sistem', role: '-' },
+                        action: 'Approval Decision',
+                        data: { approvalDecision: decision, approvalNotes: notes }
+                    }
+                ]
+            };
+
+            return {
+                ...prev,
+                items: {
+                    ...prev.items,
+                    [itemId]: updatedItem
+                }
+            };
+        });
+        setApprovalModalItem(null);
+    };
+
     const handleDeleteClick = (itemId) => {
+        const item = data.items[itemId];
+        if (!item) return;
+
+        const canDeleteAll = hasPermission('delete_procurement');
+        const canDeleteOwn = hasPermission('delete_own_procurement') && item.createdBy?.email === currentUser?.email;
+
+        if (!canDeleteAll && !canDeleteOwn) {
+            alert('Akses Ditolak: Anda tidak memiliki wewenang untuk menghapus pengadaan ini.');
+            return;
+        }
+
         setDeleteModal({ isOpen: true, itemId });
     };
 
@@ -284,6 +357,11 @@ export default function Procurement() {
 
     const onDragEnd = (result) => {
         const { destination, source, draggableId } = result;
+
+        if (!hasPermission('move_procurement')) {
+            alert('Akses Ditolak: Anda tidak memiliki wewenang "Pindah Fase" (move_procurement).');
+            return;
+        }
 
         if (!destination) return;
 
@@ -319,6 +397,13 @@ export default function Procurement() {
 
         // Flow-aware: map board column to the item's actual flow phase
         const draggedItem = data.items[draggableId];
+
+        // Ensure PR items are approved before moving
+        if (source.droppableId === 'pr' && destId !== 'pr' && !draggedItem?.approvalStatus) {
+            alert('Item PR harus di-approve terlebih dahulu sebelum dipesankan (PO).');
+            return;
+        }
+
         const itemProcType = draggedItem?.procurementType || 'major';
         const actualDest = mapFromBoardColumn(destId, itemProcType);
 
@@ -381,6 +466,7 @@ export default function Procurement() {
             selection: 'SEL',
             report: 'RPT',
             asset_eval: 'AST',
+            approval: 'PR',
         };
         const destPrefix = prefixMap[dest] || dest.toUpperCase();
         const newCode = `#${destPrefix}${numericPart}`;
@@ -403,8 +489,8 @@ export default function Procurement() {
             ]
         };
 
-        // ─── Stamp procurementType from Approval Decision (PR → PO) ──────
-        if (dest === 'po' && formValues.approvalDecision) {
+        // ─── Stamp procurementType from Approval Decision (PR → Approval) ──────
+        if (dest === 'approval' && formValues.approvalDecision) {
             const decisionMap = {
                 'Disetujui - Pengadaan Tim': 'major',
                 'Disetujui - Pengadaan Mandiri (Kecil)': 'minor',
@@ -417,18 +503,15 @@ export default function Procurement() {
         // ─── Auto-Transaction on Payment ──────────────────────────────────
         // When entering invoice phase or updating bills, auto-create transactions for "Lunas" bills
         if (formValues.bills && Array.isArray(formValues.bills)) {
-            const existingTrxs = JSON.parse(localStorage.getItem('transactions') || '[]');
-            const newTrxs = [...existingTrxs];
             const oldBills = currentItem.bills || [];
 
-            formValues.bills.forEach((bill, idx) => {
+            formValues.bills.forEach(async (bill, idx) => {
                 const oldBill = oldBills[idx];
                 const wasAlreadyPaid = oldBill?.status === 'Lunas';
 
                 if (bill.status === 'Lunas' && !wasAlreadyPaid) {
-                    // Parse the amount
                     const amountNum = parseInt((bill.amount || '0').toString().replace(/[^0-9]/g, ''), 10) || 0;
-
+                    const match = projectsList.find(p => updatedItem.project && p.name === updatedItem.project);
                     const trx = {
                         id: `trx-auto-${draggableId}-bill${bill.id || idx}-${Date.now()}`,
                         type: 'out',
@@ -436,28 +519,21 @@ export default function Procurement() {
                         amount: amountNum,
                         category: 'Pengadaan Material',
                         date: new Date().toLocaleDateString('id-ID'),
-                        projectId: (() => {
-                            // Try to find the project ID from the project name
-                            const savedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                            const match = savedProjects.find(p => updatedItem.project && p.name === updatedItem.project);
-                            return match?.id || 'all';
-                        })(),
+                        projectId: match?.id || 'all',
                         createdBy: 'Sistem (Auto-Procurement)',
                         notes: `Otomatis dari pengadaan ${updatedItem.code} - ${bill.label || 'Tagihan'}`,
                         procurementRef: draggableId,
                     };
-                    newTrxs.unshift(trx);
+                    try { await api.transactions.create(trx); } catch (e) { console.error(e); }
                 }
             });
-
-            localStorage.setItem('transactions', JSON.stringify(newTrxs));
         }
 
         // Also auto-create transaction for Minor procurement report phase
         if (dest === 'report' && formValues.reportTotal) {
-            const existingTrxs = JSON.parse(localStorage.getItem('transactions') || '[]');
             const amountNum = parseInt((formValues.reportTotal || '0').toString().replace(/[^0-9]/g, ''), 10) || 0;
             if (amountNum > 0) {
+                const match = projectsList.find(p => updatedItem.project && p.name === updatedItem.project);
                 const trx = {
                     id: `trx-auto-${draggableId}-report-${Date.now()}`,
                     type: 'out',
@@ -465,17 +541,12 @@ export default function Procurement() {
                     amount: amountNum,
                     category: 'Pengadaan Kecil',
                     date: formValues.reportDate || new Date().toLocaleDateString('id-ID'),
-                    projectId: (() => {
-                        const savedProjects = JSON.parse(localStorage.getItem('projects') || '[]');
-                        const match = savedProjects.find(p => updatedItem.project && p.name === updatedItem.project);
-                        return match?.id || 'all';
-                    })(),
+                    projectId: match?.id || 'all',
                     createdBy: 'Sistem (Auto-Procurement)',
                     notes: `Otomatis dari laporan pengadaan kecil ${updatedItem.code}`,
                     procurementRef: draggableId,
                 };
-                existingTrxs.unshift(trx);
-                localStorage.setItem('transactions', JSON.stringify(existingTrxs));
+                try { api.transactions.create(trx); } catch (e) { console.error(e); }
             }
         }
 
@@ -509,6 +580,14 @@ export default function Procurement() {
     };
 
     const handleEditClick = (item) => {
+        const canEditAll = hasPermission('edit_procurement');
+        const canEditOwn = hasPermission('edit_own_procurement') && item.createdBy?.email === currentUser?.email;
+
+        if (!canEditAll && !canEditOwn) {
+            alert('Akses Ditolak: Anda tidak memiliki wewenang untuk mengedit pengadaan ini.');
+            return;
+        }
+
         setSelectedItem(null); // close detail modal
         setEditingItem(item);  // open edit modal
     };
@@ -590,8 +669,7 @@ export default function Procurement() {
                         <button
                             onClick={() => {
                                 if (window.confirm("Peringatan: Reset papan akan mengembalikan semua data ke versi bawaan demo (mock data) dan menghapus perubahan Anda. Lanjutkan?")) {
-                                    localStorage.removeItem('procurementData');
-                                    window.location.reload();
+                                    setData(initialData);
                                 }
                             }}
                             className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-surface-dark-lighter dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -700,6 +778,7 @@ export default function Procurement() {
                                                                         onClick={() => setSelectedItem(task)}
                                                                         onDelete={() => handleDeleteClick(task.id)}
                                                                         onViewHistory={() => setHistoryModalItem(task)}
+                                                                        onApprove={hasPermission('approve_pr') ? () => setApprovalModalItem(task) : undefined}
                                                                     />
                                                                 </div>
                                                             )}
@@ -776,6 +855,53 @@ export default function Procurement() {
                     item={historyModalItem}
                 />
 
+                {/* Approval Modal */}
+                {approvalModalItem && (
+                    <div className="fixed inset-0 z-[60] flex justify-center bg-slate-900/50 backdrop-blur-sm p-4 pt-10 md:pt-20 overflow-y-auto">
+                        <div className="bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-xl w-full max-w-md h-fit my-auto">
+                            <div className="p-4 md:p-5 border-b border-slate-100 dark:border-border-dark/50 flex justify-between items-center bg-slate-50/50 dark:bg-surface-dark-lighter rounded-t-xl">
+                                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg flex items-center gap-2">
+                                    <span className="material-icons-round text-primary text-xl">verified</span>
+                                    Persetujuan PR
+                                </h3>
+                                <button onClick={() => setApprovalModalItem(null)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                    <span className="material-icons-round">close</span>
+                                </button>
+                            </div>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.target);
+                                const decision = formData.get('approvalDecision');
+                                const notes = formData.get('approvalNotes');
+                                handleApprovePR(approvalModalItem.id, decision, notes);
+                            }} className="p-4 md:p-5 space-y-4">
+                                <div className="mb-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                                    <p className="text-xs text-slate-500 mb-1">Item PR</p>
+                                    <p className="text-sm font-semibold">{approvalModalItem.title}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Keputusan Approval PR <span className="text-red-500">*</span></label>
+                                    <select name="approvalDecision" required className="w-full text-sm rounded-lg border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark focus:border-primary focus:ring-primary h-10 px-3">
+                                        <option value="">Pilih Keputusan...</option>
+                                        <option value="Disetujui - Pengadaan Tim">Disetujui - Pengadaan Tim (Besar)</option>
+                                        <option value="Disetujui - Pengadaan Mandiri (Kecil)">Disetujui - Pengadaan Mandiri (Kecil)</option>
+                                        <option value="Disetujui - Pengadaan Aset">Disetujui - Pengadaan Aset</option>
+                                        <option value="Perlu Prasyarat">Perlu Prasyarat (Hold)</option>
+                                        <option value="Ditolak">Ditolak</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Catatan Approval</label>
+                                    <textarea name="approvalNotes" rows="3" placeholder="Catatan opsional..." className="w-full text-sm rounded-lg border-slate-200 dark:border-border-dark bg-white dark:bg-surface-dark focus:border-primary focus:ring-primary p-3 resize-none"></textarea>
+                                </div>
+                                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-border-dark/50 mt-6 md:mt-8">
+                                    <button type="button" onClick={() => setApprovalModalItem(null)} className="px-5 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">Batal</button>
+                                    <button type="submit" className="px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-dark rounded-lg shadow-sm transition-colors flex items-center gap-1.5"><span className="material-icons-round text-[16px]">check_circle</span> Simpan Keputusan</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import SearchableSelect from './SearchableSelect';
+import { api } from '../lib/api';
 
 export default function CategoryDetailPanel({ category, isOpen, onClose, onUpdate }) {
     const [subCategories, setSubCategories] = useState([]);
@@ -15,14 +16,15 @@ export default function CategoryDetailPanel({ category, isOpen, onClose, onUpdat
         }
     }, [isOpen, category]);
 
-    const loadData = () => {
-        const allSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-        const allCats = JSON.parse(localStorage.getItem("categories")) || [];
-        // Handle both string and number ID comparison
-        const filtered = allSubs.filter(s => s.categoryId == category.id);
-
-        setSubCategories(filtered);
-        setCategories(allCats);
+    const loadData = async () => {
+        try {
+            const allCats = await api.categories.list();
+            const allTopCats = (allCats || []).filter(c => !c.categoryId);
+            const allSubs = (allCats || []).filter(c => !!c.categoryId);
+            const filtered = allSubs.filter(s => s.categoryId == category.id);
+            setSubCategories(filtered);
+            setCategories(allTopCats);
+        } catch (e) { console.error('Failed to load category data:', e); }
     };
 
     const handleEditClick = (sub) => {
@@ -37,69 +39,34 @@ export default function CategoryDetailPanel({ category, isOpen, onClose, onUpdat
         setEditParentId("");
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
         if (!editName.trim()) return;
 
-        const allSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-
-        // Check for duplicates (excluding current)
-        const isDuplicate = allSubs.some(
-            (sub) =>
-                sub.categoryId == editParentId &&
-                sub.name.toLowerCase() === editName.trim().toLowerCase() &&
-                sub.id !== editingSubId
-        );
-
-        if (isDuplicate) {
-            alert("Sub-kategori dengan nama ini sudah ada di kategori tujuan!");
-            return;
+        try {
+            await api.categories.updateSub(editingSubId, {
+                name: editName.trim(),
+                categoryId: editParentId
+            });
+            await loadData();
+            handleCancelEdit();
+            if (onUpdate) onUpdate();
+        } catch (e) {
+            alert('Gagal menyimpan perubahan sub-kategori.');
+            console.error(e);
         }
-
-        const updatedSubs = allSubs.map(sub => {
-            if (sub.id === editingSubId) {
-                return { ...sub, name: editName.trim(), categoryId: editParentId };
-            }
-            return sub;
-        });
-
-        localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
-
-        // Refresh local view
-        const reFiltered = updatedSubs.filter(s => s.categoryId == category.id);
-        setSubCategories(reFiltered); // Note: If moved, it will disappear from list, which is correct
-
-        handleCancelEdit();
-        if (onUpdate) onUpdate(); // Refresh parent list counts
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm("Hapus sub-kategori ini?")) {
-            const allSubs = JSON.parse(localStorage.getItem("subCategories")) || [];
-            const deletedSub = allSubs.find(s => s.id === id);
-            const deletedSubName = deletedSub ? deletedSub.name : '';
-            const updatedSubs = allSubs.filter(s => s.id !== id);
-            localStorage.setItem("subCategories", JSON.stringify(updatedSubs));
-
-            // Fix orphaned materials: clear subCategory reference (match by name AND id)
-            const savedMaterials = JSON.parse(localStorage.getItem("materials")) || [];
-            let materialsChanged = false;
-            const updatedMaterials = savedMaterials.map((m) => {
-                const isAffected = m.subCategory === deletedSubName ||
-                    m.subCategoryId === id ||
-                    String(m.subCategoryId) === String(id);
-                if (isAffected) {
-                    materialsChanged = true;
-                    return { ...m, subCategoryId: '', subCategory: '' };
-                }
-                return m;
-            });
-            if (materialsChanged) {
-                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-                window.dispatchEvent(new Event("storage"));
+            try {
+                await api.categories.deleteSub(id);
+                // Also clear orphaned material references via API if needed
+                // For now, sub-category deletion cascade is handled server-side
+                await loadData();
+                if (onUpdate) onUpdate();
+            } catch (e) {
+                console.error('Failed to delete sub-category:', e);
             }
-
-            loadData();
-            if (onUpdate) onUpdate();
         }
     };
 

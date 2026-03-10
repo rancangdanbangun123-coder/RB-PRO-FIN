@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { api } from '../lib/api';
 
 export default function AddAssetModal({ isOpen, onClose, onSave }) {
     const [isVisible, setIsVisible] = useState(false);
@@ -25,37 +26,41 @@ export default function AddAssetModal({ isOpen, onClose, onSave }) {
 
     useEffect(() => {
         if (isOpen) {
-            // Refresh categories & sub-categories from localStorage every time the modal opens
-            const catData = JSON.parse(localStorage.getItem("categories")) || [];
-            const subData = JSON.parse(localStorage.getItem("subCategories")) || [];
-            setCategories(catData);
-            setSubCategories(subData);
+            // Refresh categories & sub-categories from API every time the modal opens
+            (async () => {
+                try {
+                    const allCats = await api.categories.list();
+                    const catData = (allCats || []).filter(c => !c.categoryId);
+                    const subData = (allCats || []).filter(c => !!c.categoryId);
+                    setCategories(catData);
+                    setSubCategories(subData);
 
-            // Auto-lock category to 'Aset' — self-healing: create if missing
-            let asetCat = catData.find(c => c.name.toLowerCase() === 'aset');
-            if (!asetCat) {
-                asetCat = { id: `SYS-ASET-${Date.now()}`, name: 'Aset', icon: 'inventory_2' };
-                catData.push(asetCat);
-                localStorage.setItem("categories", JSON.stringify(catData));
-                setCategories([...catData]);
-            }
+                    // Auto-lock category to 'Aset' — self-healing: create if missing
+                    let asetCat = catData.find(c => c.name.toLowerCase() === 'aset');
+                    if (!asetCat) {
+                        asetCat = { id: `SYS-ASET-${Date.now()}`, name: 'Aset', icon: 'inventory_2' };
+                        try { await api.categories.create(asetCat); } catch (e) { /* ignore */ }
+                        setCategories(prev => [...prev, asetCat]);
+                    }
+
+                    // Reset form
+                    setFormData({
+                        name: '',
+                        categoryId: asetCat ? String(asetCat.id) : '',
+                        category: asetCat ? asetCat.name : 'Aset',
+                        subCategoryId: '',
+                        subCategory: '',
+                        brand: '',
+                        serialNumber: '',
+                        purchaseYear: '',
+                        qty: 1,
+                        stockBreakdown: [{ serialNumber: '', condition: 'Baik', status: 'Tersedia', location: '', qty: 1 }]
+                    });
+                } catch (e) { console.error('Failed to load categories for AddAssetModal:', e); }
+            })();
 
             setIsVisible(true);
             setTimeout(() => setAnimateIn(true), 10);
-
-            // Reset form when opened for a new asset
-            setFormData({
-                name: '',
-                categoryId: asetCat ? String(asetCat.id) : '',
-                category: asetCat ? asetCat.name : 'Aset',
-                subCategoryId: '',
-                subCategory: '',
-                brand: '',
-                serialNumber: '',
-                purchaseYear: '',
-                qty: 1,
-                stockBreakdown: [{ serialNumber: '', condition: 'Baik', status: 'Tersedia', location: '', qty: 1 }]
-            });
         } else {
             setAnimateIn(false);
             const timer = setTimeout(() => setIsVisible(false), 300);

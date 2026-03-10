@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { DEFAULT_USERS } from '../data/userData';
+import { authClient } from '../lib/auth-client';
+import { api } from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -30,8 +31,11 @@ export const ALL_PERMISSIONS = [
     { key: 'import_material', label: 'Import Material', icon: 'upload_file', description: 'Import data material dari file', group: 'Material' },
     // ── Pengadaan ──
     { key: 'create_procurement', label: 'Buat PR', icon: 'add_shopping_cart', description: 'Buat permintaan pengadaan baru', group: 'Pengadaan' },
-    { key: 'edit_procurement', label: 'Edit Pengadaan', icon: 'edit', description: 'Ubah item pengadaan', group: 'Pengadaan' },
-    { key: 'delete_procurement', label: 'Hapus Pengadaan', icon: 'delete', description: 'Hapus item pengadaan', group: 'Pengadaan' },
+    { key: 'approve_pr', label: 'Persetujuan PR', icon: 'check_circle', description: 'Menyetujui PR & menentukan tipe pengadaan', group: 'Pengadaan' },
+    { key: 'edit_procurement', label: 'Edit Pengadaan', icon: 'edit', description: 'Ubah item pengadaan (Semua)', group: 'Pengadaan' },
+    { key: 'edit_own_procurement', label: 'Edit Pengadaan Sendiri', icon: 'edit_note', description: 'Ubah item pengadaan yang dibuat sendiri', group: 'Pengadaan', parent: 'edit_procurement' },
+    { key: 'delete_procurement', label: 'Hapus Pengadaan', icon: 'delete', description: 'Hapus item pengadaan (Semua)', group: 'Pengadaan' },
+    { key: 'delete_own_procurement', label: 'Hapus Pengadaan Sendiri', icon: 'delete_sweep', description: 'Hapus item pengadaan yang dibuat sendiri', group: 'Pengadaan', parent: 'delete_procurement' },
     { key: 'move_procurement', label: 'Pindah Fase', icon: 'swap_horiz', description: 'Pindahkan item antar fase pengadaan', group: 'Pengadaan' },
     // ── Aset ──
     { key: 'create_asset', label: 'Tambah Aset', icon: 'add_box', description: 'Tambah aset baru', group: 'Aset' },
@@ -50,17 +54,16 @@ export const ALL_PERMISSIONS = [
     { key: 'view_akuntansi', label: 'Lihat Akuntansi', icon: 'account_balance_wallet', description: 'Akses modul akuntansi', group: 'Akuntansi' },
 ];
 
-// All permission keys for convenience
 const ALL_PERM_KEYS = ALL_PERMISSIONS.map(p => p.key);
 
-// Default role-permission mapping (seeded on first load)
+// Default role-permission mapping (used as fallback)
 const DEFAULT_ROLE_PERMISSIONS = {
     'Admin': [...ALL_PERM_KEYS],
     'Project Manager': [
         'view_proyek', 'create_proyek', 'edit_proyek',
         'view_category', 'create_category',
         'view_logistik', 'create_material', 'edit_material', 'import_material',
-        'create_procurement', 'edit_procurement', 'move_procurement',
+        'create_procurement', 'approve_pr', 'edit_procurement', 'edit_own_procurement', 'delete_own_procurement', 'move_procurement',
         'create_asset', 'edit_asset',
         'create_subcon', 'edit_subcon',
         'view_akuntansi',
@@ -76,35 +79,18 @@ const DEFAULT_ROLE_PERMISSIONS = {
         'view_proyek',
         'view_category', 'create_category',
         'view_logistik', 'create_material', 'edit_material',
-        'create_procurement', 'edit_procurement', 'move_procurement',
+        'create_procurement', 'edit_own_procurement', 'delete_own_procurement', 'move_procurement',
         'create_asset', 'edit_asset',
         'create_subcon', 'edit_subcon',
         'view_akuntansi',
     ],
 };
 
-// Read or seed role permissions from localStorage
-// Includes migration: upgrades old 7-key format to new ~30-key format
+// Get role permissions — try API first, fall back to defaults
 export function getRolePermissions() {
+    // Return current cached permissions synchronously (for backwards compat)
     const saved = localStorage.getItem('rolePermissions');
-    if (saved) {
-        const parsed = JSON.parse(saved);
-        // Migration: detect old format (any default role has ≤7 permissions)
-        const needsMigration = Object.keys(DEFAULT_ROLE_PERMISSIONS).some(role => {
-            const current = parsed[role];
-            const expected = DEFAULT_ROLE_PERMISSIONS[role];
-            return current && expected && current.length < expected.length;
-        });
-        if (needsMigration) {
-            // Re-seed default roles, preserve custom roles
-            for (const [role, perms] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-                parsed[role] = [...perms];
-            }
-            localStorage.setItem('rolePermissions', JSON.stringify(parsed));
-        }
-        return parsed;
-    }
-    localStorage.setItem('rolePermissions', JSON.stringify(DEFAULT_ROLE_PERMISSIONS));
+    if (saved) return JSON.parse(saved);
     return { ...DEFAULT_ROLE_PERMISSIONS };
 }
 
@@ -113,89 +99,118 @@ export function saveRolePermissions(rolePerms) {
     window.dispatchEvent(new Event('rolePermissionsUpdated'));
 }
 
-function getUsers() {
-    const saved = localStorage.getItem('users');
-    if (saved) return JSON.parse(saved);
-    localStorage.setItem('users', JSON.stringify(DEFAULT_USERS));
-    return DEFAULT_USERS;
-}
-
 export function AuthProvider({ children }) {
-    const [currentUser, setCurrentUser] = useState(() => {
-        const saved = sessionStorage.getItem('currentUser');
-        return saved ? JSON.parse(saved) : null;
-    });
+    const [currentUser, setCurrentUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [livePermissions, setLivePermissions] = useState(() => getRolePermissions());
 
-    // Force re-render when role permissions change
-    const [, setPermTick] = useState(0);
+    // Check session on mount
     useEffect(() => {
-        const handler = () => setPermTick(t => t + 1);
+        checkSession();
+    }, []);
+
+    async function checkSession() {
+        try {
+            const { data } = await authClient.getSession();
+            if (data?.user) {
+                setCurrentUser(data.user);
+                // Only load permissions for active users
+                if (data.user.status === 'Active') {
+                    await loadPermissions();
+                }
+                return data.user;
+            }
+        } catch (err) {
+            console.log('No active session');
+        } finally {
+            setLoading(false);
+        }
+        return null;
+    }
+
+    async function loadPermissions() {
+        try {
+            const roles = await api.permissions.listRoles();
+            const rolePerms = {};
+            for (const role of roles) {
+                rolePerms[role.name] = (role.permissions || []).map(p => p.permissionKey);
+            }
+            setLivePermissions(rolePerms);
+            localStorage.setItem('rolePermissions', JSON.stringify(rolePerms));
+        } catch (err) {
+            console.warn('Failed to load permissions from API, using defaults');
+            setLivePermissions(DEFAULT_ROLE_PERMISSIONS);
+        }
+    }
+
+    // Listen for local permission updates (from RoleManagement)
+    useEffect(() => {
+        const handler = () => {
+            setLivePermissions(getRolePermissions());
+        };
         window.addEventListener('rolePermissionsUpdated', handler);
         return () => window.removeEventListener('rolePermissionsUpdated', handler);
     }, []);
 
-    useEffect(() => {
-        if (currentUser) {
-            sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-        } else {
-            sessionStorage.removeItem('currentUser');
+    const login = useCallback(async (email, password) => {
+        try {
+            const { data, error } = await authClient.signIn.email({ email, password });
+            if (error) {
+                return { success: false, error: error.message || 'Email atau password salah' };
+            }
+            setCurrentUser(data.user);
+            if (data.user.status === 'Active') {
+                await loadPermissions();
+            }
+            return { success: true, user: data.user };
+        } catch (err) {
+            return { success: false, error: err.message || 'Login gagal' };
         }
-    }, [currentUser]);
-
-    const login = useCallback((email, password) => {
-        const users = getUsers();
-        const user = users.find(
-            u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-        );
-        if (!user) {
-            return { success: false, error: 'Email atau password salah' };
-        }
-        if (user.status && user.status !== 'Active') {
-            return { success: false, error: 'Akun Anda tidak aktif. Hubungi admin.' };
-        }
-        setCurrentUser(user);
-        return { success: true, user };
     }, []);
 
-    const signup = useCallback((name, email, password) => {
-        const users = getUsers();
-        if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-            return { success: false, error: 'Email sudah terdaftar' };
+    const signup = useCallback(async (name, email, password) => {
+        try {
+            const { data, error } = await authClient.signUp.email({
+                name,
+                email,
+                password,
+            });
+            if (error) {
+                return { success: false, error: error.message || 'Pendaftaran gagal' };
+            }
+            // Re-fetch session to get the latest user data (auto-admin may have updated it)
+            const sessionResult = await authClient.getSession();
+            const freshUser = sessionResult?.data?.user || data.user;
+            setCurrentUser(freshUser);
+            if (freshUser.status === 'Active') {
+                await loadPermissions();
+            }
+            return { success: true, user: freshUser };
+        } catch (err) {
+            return { success: false, error: err.message || 'Pendaftaran gagal' };
         }
-
-        const newUser = {
-            id: `USR-${Date.now()}`,
-            name,
-            email,
-            password,
-            role: 'Project Manager',
-            status: 'Active',
-            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
-        };
-
-        const updatedUsers = [...users, newUser];
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
-        window.dispatchEvent(new Event('storage'));
-        setCurrentUser(newUser);
-        return { success: true, user: newUser };
     }, []);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        try {
+            await authClient.signOut();
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
         setCurrentUser(null);
-        sessionStorage.removeItem('currentUser');
     }, []);
 
     const hasPermission = useCallback((permission) => {
         if (!currentUser) return false;
         const role = currentUser.role;
-        const rolePerms = getRolePermissions();
-        const perms = rolePerms[role];
+        const perms = livePermissions[role];
         if (!perms) {
-            // Unknown role — basic access only
             return permission !== 'view_users' && permission !== 'view_all_projects' && permission !== 'view_keuangan';
         }
         return perms.includes(permission);
-    }, [currentUser]);
+    }, [currentUser, livePermissions]);
+
+    const isPending = currentUser && currentUser.status !== 'Active';
 
     const value = {
         currentUser,
@@ -203,7 +218,10 @@ export function AuthProvider({ children }) {
         signup,
         logout,
         hasPermission,
+        checkSession,
         isAuthenticated: !!currentUser,
+        isPending,
+        loading,
     };
 
     return (

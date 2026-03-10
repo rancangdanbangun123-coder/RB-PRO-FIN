@@ -3,10 +3,14 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, requiredPermission }) {
-    const { isAuthenticated, hasPermission } = useAuth();
+    const { isAuthenticated, isPending, hasPermission } = useAuth();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
+    }
+
+    if (isPending) {
+        return <Navigate to="/pending" replace />;
     }
 
     if (requiredPermission && !hasPermission(requiredPermission)) {

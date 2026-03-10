@@ -17,10 +17,14 @@ export default function Login() {
         setLoading(true);
 
         // Simulate brief loading for UX
-        setTimeout(() => {
-            const result = login(email, password);
+        setTimeout(async () => {
+            const result = await login(email, password);
             if (result.success) {
-                navigate('/dashboard');
+                if (result.user?.status === 'Active') {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/pending');
+                }
             } else {
                 setError(result.error);
                 setLoading(false);

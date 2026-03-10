@@ -1,31 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { projects } from '../data/projectData';
+import { api } from '../lib/api';
 
 export default function SisaMaterialTab() {
     // 1. Load Data
     const [materials, setMaterials] = useState([]);
     const [editingItem, setEditingItem] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    // 2. Sisa Material State (Main Table Data)
-    const [sisaMaterials, setSisaMaterials] = useState(() => {
-        const saved = localStorage.getItem('sisaMaterials');
-        // Initial mock data if empty
-        if (saved) return JSON.parse(saved);
-        return [
-            { id: 1, materialName: 'Pipa PVC 4" AW', sku: 'PV-400-AW', projectOrigin: 'Apt. Green Lake', projectColor: 'bg-blue-500', qty: 50, unit: 'btg', targetLocation: 'Gudang Pusat (Main Warehouse)' },
-            { id: 2, materialName: 'Semen Gresik 40kg', sku: 'SM-GR-40', projectOrigin: 'RS Sentra Medika', projectColor: 'bg-orange-500', qty: 12, unit: 'sak', targetLocation: 'Gudang Pusat (Main Warehouse)' },
-            { id: 3, materialName: 'Besi Beton 10mm', sku: 'BB-10-SNI', projectOrigin: 'Apt. Green Lake', projectColor: 'bg-blue-500', qty: 85, unit: 'btg', targetLocation: 'Gudang Pusat (Main Warehouse)' }
-        ];
-    });
+    const [sisaMaterials, setSisaMaterials] = useState([]);
+    const [projectsList, setProjectsList] = useState([]);
 
     useEffect(() => {
-        const savedMats = localStorage.getItem('materials');
-        if (savedMats) setMaterials(JSON.parse(savedMats));
+        (async () => {
+            try {
+                const [mats, projs] = await Promise.all([
+                    api.materials.list(),
+                    api.projects.list(),
+                ]);
+                setMaterials(mats || []);
+                setProjectsList(projs || []);
+                // TODO: load sisa materials from API when endpoint exists
+                // For now, start with empty array
+            } catch (err) { console.error('Failed to load sisa material data:', err); }
+        })();
     }, []);
-
-    useEffect(() => {
-        localStorage.setItem('sisaMaterials', JSON.stringify(sisaMaterials));
-    }, [sisaMaterials]);
 
     // 3. Form Mode & State
     const [formMode, setFormMode] = useState('Opname'); // 'Opname' or 'Transfer'
@@ -53,7 +50,7 @@ export default function SisaMaterialTab() {
         // Map back to global materials reference to render options
         return materials.filter(m => existingInProject.some(ex => ex.sku === m.sku || ex.materialName === m.name));
 
-    }, [formData.projectId, formMode, materials, sisaMaterials, projects]);
+    }, [formData.projectId, formMode, materials, sisaMaterials, projectsList]);
 
     const maxTransferQty = useMemo(() => {
         if (formMode !== 'Transfer' || !formData.projectId || !formData.materialId) return null;
@@ -69,7 +66,7 @@ export default function SisaMaterialTab() {
         );
 
         return existingRecords.reduce((sum, item) => sum + Number(item.qty), 0);
-    }, [formData.projectId, formData.materialId, formMode, sisaMaterials, projects, materials]);
+    }, [formData.projectId, formData.materialId, formMode, sisaMaterials, projectsList, materials]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;

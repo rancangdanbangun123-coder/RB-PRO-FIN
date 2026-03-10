@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ALL_PERMISSIONS, getRolePermissions, saveRolePermissions } from '../context/AuthContext';
-import { DEFAULT_USERS } from '../data/userData';
+import { api } from '../lib/api';
 
 // Group icon map
 const GROUP_ICONS = {
@@ -63,13 +63,22 @@ export default function RoleManagement() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    const roleNames = Object.keys(rolePerms);
+    const [allUsers, setAllUsers] = useState([]);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const users = await api.users.list();
+                setAllUsers(users || []);
+            } catch (err) { console.error('Failed to load users:', err); }
+        })();
+    }, []);
 
     const getUserCount = (roleName) => {
-        const saved = localStorage.getItem('users');
-        const users = saved ? JSON.parse(saved) : DEFAULT_USERS;
-        return users.filter(u => u.role === roleName).length;
+        return allUsers.filter(u => u.role === roleName).length;
     };
+
+    const roleNames = Object.keys(rolePerms);
 
     const togglePermission = (roleName, permKey) => {
         if (roleName === 'Admin') {
@@ -123,7 +132,7 @@ export default function RoleManagement() {
         showToast(`Role "${trimmed}" berhasil dibuat`);
     };
 
-    const handleDeleteRole = (roleName) => {
+    const handleDeleteRole = async (roleName) => {
         if (roleName === 'Admin') {
             showToast('Role Admin tidak dapat dihapus', 'error');
             return;
@@ -135,15 +144,18 @@ export default function RoleManagement() {
         if (!window.confirm(confirmMsg)) return;
 
         if (userCount > 0) {
-            const saved = localStorage.getItem('users');
-            const users = saved ? JSON.parse(saved) : [];
-            const updated = users.map(u => u.role === roleName ? { ...u, role: 'Project Manager' } : u);
-            localStorage.setItem('users', JSON.stringify(updated));
-            window.dispatchEvent(new Event('storage'));
+            try {
+                const users = await api.users.list();
+                const toUpdate = users.filter(u => u.role === roleName);
+                for (const u of toUpdate) {
+                    await api.users.update(u.id, { ...u, role: 'Project Manager' });
+                }
+                setAllUsers(prev => prev.map(u => u.role === roleName ? { ...u, role: 'Project Manager' } : u));
+            } catch (err) { console.error('Failed to reassign users:', err); }
         }
 
-        const customRoles = JSON.parse(localStorage.getItem('customRoles') || '[]');
-        localStorage.setItem('customRoles', JSON.stringify(customRoles.filter(r => r !== roleName)));
+        // Remove custom role via API if applicable
+        try { await api.permissions.deleteRole(roleName); } catch (e) { /* may not be a custom role */ }
 
         const { [roleName]: _, ...rest } = rolePerms;
         setRolePerms(rest);
@@ -306,31 +318,42 @@ export default function RoleManagement() {
                                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                                         {groupPerms.map(perm => {
                                                             const isEnabled = perms.includes(perm.key);
+                                                            const isChild = !!perm.parent;
+                                                            const isParentEnabled = isChild && perms.includes(perm.parent);
+                                                            const effectivelyEnabled = isEnabled || isParentEnabled;
+
                                                             return (
                                                                 <button
                                                                     key={perm.key}
-                                                                    onClick={() => togglePermission(roleName, perm.key)}
-                                                                    disabled={isAdmin}
-                                                                    className={`flex flex-row items-center justify-between group p-3 text-left rounded-lg transition-all border ${isEnabled
-                                                                            ? 'border-primary/20 bg-primary/5 dark:bg-primary/10 dark:border-primary/30'
-                                                                            : 'border-slate-200 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/20'
-                                                                        } ${isAdmin ? '' : 'hover:border-primary/40 hover:bg-primary/5 dark:hover:bg-primary/20'}`}
+                                                                    onClick={(e) => {
+                                                                        if (isParentEnabled) {
+                                                                            e.preventDefault();
+                                                                            return;
+                                                                        }
+                                                                        togglePermission(roleName, perm.key);
+                                                                    }}
+                                                                    disabled={isAdmin || isParentEnabled}
+                                                                    className={`flex flex-row items-center justify-between group p-3 text-left rounded-lg transition-all border ${isChild ? 'ml-0 lg:ml-6 border-l-4 border-l-slate-300 dark:border-l-slate-600' : ''} ${effectivelyEnabled
+                                                                        ? 'border-primary/20 bg-primary/5 dark:bg-primary/10 dark:border-primary/30'
+                                                                        : 'border-slate-200 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/20'
+                                                                        } ${isAdmin || isParentEnabled ? '' : 'hover:border-primary/40 hover:bg-primary/5 dark:hover:bg-primary/20'} ${isChild && isParentEnabled ? 'opacity-60' : ''}`}
                                                                 >
                                                                     <div className="flex flex-col gap-0.5 pr-4">
-                                                                        <div className={`text-sm font-semibold transition-colors ${isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
+                                                                        <div className={`text-sm font-semibold transition-colors ${effectivelyEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'
                                                                             }`}>
+                                                                            {isChild && <span className="text-slate-400 mr-2">↳</span>}
                                                                             {perm.label}
                                                                         </div>
-                                                                        <div className={`text-xs transition-colors ${isEnabled ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'
+                                                                        <div className={`text-xs transition-colors ${effectivelyEnabled ? 'text-slate-600 dark:text-slate-400' : 'text-slate-400 dark:text-slate-500'
                                                                             }`}>
                                                                             {perm.description}
                                                                         </div>
                                                                     </div>
 
                                                                     {/* Individual Toggle */}
-                                                                    <div className={`w-9 h-5 rounded-full flex items-center transition-colors duration-200 shrink-0 ${isEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'
-                                                                        } ${isAdmin ? 'opacity-70' : ''}`}>
-                                                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mx-0.5 ${isEnabled ? 'translate-x-[16px]' : 'translate-x-0'
+                                                                    <div className={`w-9 h-5 rounded-full flex items-center transition-colors duration-200 shrink-0 ${effectivelyEnabled ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-600'
+                                                                        } ${isAdmin || isParentEnabled ? 'opacity-70' : ''}`}>
+                                                                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 mx-0.5 ${effectivelyEnabled ? 'translate-x-[16px]' : 'translate-x-0'
                                                                             }`}></div>
                                                                     </div>
                                                                 </button>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MATERIAL_DATABASE } from '../data/materialData';
-import { projects as fallbackProjects } from '../data/projectData';
+import { api } from '../lib/api';
 import SearchableSelect from './SearchableSelect';
 
 export default function CreatePRModal({ isOpen, onClose, projects, onSubmit }) {
@@ -19,42 +18,28 @@ export default function CreatePRModal({ isOpen, onClose, projects, onSubmit }) {
             setIsVisible(true);
             setTimeout(() => setAnimateIn(true), 10);
 
-            // Fetch live materials when modal opens
-            const savedMats = localStorage.getItem('materials');
-            if (savedMats) {
-                setMaterialDatabase(JSON.parse(savedMats));
-            } else {
-                // If it's their very first time and they never visited Material Database page
-                setMaterialDatabase(MATERIAL_DATABASE);
-                localStorage.setItem('materials', JSON.stringify(MATERIAL_DATABASE));
-            }
-
-            // Fetch live projects
-            const savedProjects = localStorage.getItem('projects');
-            let activeProjects = [];
-
-            if (savedProjects) {
+            // Fetch live materials and projects from API
+            (async () => {
                 try {
-                    const parsed = JSON.parse(savedProjects);
-                    activeProjects = Array.isArray(parsed) ? parsed : fallbackProjects;
+                    const [mats, projs] = await Promise.all([
+                        api.materials.list(),
+                        api.projects.list(),
+                    ]);
+                    setMaterialDatabase(mats || []);
+
+                    const activeProjects = (projs || []).filter(p => p.status !== 'Completed');
+                    if (activeProjects.length > 0) {
+                        const projectNames = activeProjects.map(p => p.name || 'Unnamed Project');
+                        setRealProjects(projectNames);
+                        setSelectedProject(projectNames[0]);
+                    } else {
+                        setRealProjects(['No Projects']);
+                        setSelectedProject('No Projects');
+                    }
                 } catch (e) {
-                    activeProjects = fallbackProjects;
+                    console.error('Failed to load data for CreatePRModal:', e);
                 }
-            } else {
-                activeProjects = fallbackProjects;
-            }
-
-            // Filter only active
-            const filtered = activeProjects.filter(p => p.status !== 'Completed');
-
-            if (filtered.length > 0) {
-                const projectNames = filtered.map(p => p.name || 'Unnamed Project');
-                setRealProjects(projectNames);
-                setSelectedProject(projectNames[0]);
-            } else {
-                setRealProjects(['113 - Ciwaruga', '116 - Pesona Bali']);
-                setSelectedProject('113 - Ciwaruga');
-            }
+            })();
         } else {
             setAnimateIn(false);
             const timer = setTimeout(() => setIsVisible(false), 300);

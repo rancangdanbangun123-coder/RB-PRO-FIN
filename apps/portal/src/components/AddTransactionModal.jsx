@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import SearchableSelect from './SearchableSelect';
-import { MATERIAL_DATABASE } from '../data/materialData';
-import { projects as PROJECT_DATA } from '../data/projectData';
-import { SUBCON_DATABASE } from '../data/subcontractorData';
+import { api } from '../lib/api';
 
 export default function AddTransactionModal({ isOpen, onClose, selectedProjectName, categories, subCategories, onSaveTransaction, editData, materials = [] }) {
+    const [projectData, setProjectData] = useState([]);
+    const [subcontractors, setSubcontractors] = useState([]);
     const [type, setType] = useState('out');
     const [selectedProject, setSelectedProject] = useState('');
     const [notes, setNotes] = useState('');
@@ -58,6 +58,22 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
         }
     }, [isOpen, selectedProjectName, editData]);
 
+    // Load projects and subcontractors from API
+    useEffect(() => {
+        if (isOpen) {
+            (async () => {
+                try {
+                    const [projs, subs] = await Promise.all([
+                        api.projects.list(),
+                        api.subcontractors.list(),
+                    ]);
+                    setProjectData(projs || []);
+                    setSubcontractors(subs || []);
+                } catch (e) { console.error('Failed to load data for AddTransactionModal:', e); }
+            })();
+        }
+    }, [isOpen]);
+
     // Calculate subtotal, discounts, taxes, and final total
     const financialSummary = useMemo(() => {
         let subtotal = 0;
@@ -102,18 +118,20 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
         if (!selectedProject || type !== 'out') return [];
 
         // 1. Find correct Project ID and Progress from name
-        const matchedProject = PROJECT_DATA.find(p => p.name === selectedProject);
+        const matchedProject = projectData.find(p => p.name === selectedProject);
         const projectId = matchedProject ? matchedProject.id : null;
         const projectProgress = matchedProject ? (matchedProject.progress || 0) : 0;
 
         if (!projectId) return [];
 
-        // 2. Fetch formal budgets for this project
-        const savedBudgets = JSON.parse(localStorage.getItem(`budgetItems_${projectId}`)) || [];
+        // 2. Fetch formal budgets for this project (loaded async)
+        // For now use empty array — budget simulation requires dedicated API endpoint
+        const savedBudgets = [];
 
-        // 3. Fetch past transactions to calculate 'Previously Used'
-        const allTransactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        const pastProjectTrxs = allTransactions.filter(t => String(t.projectId) === String(projectId) && t.type === 'out');
+        // 3. Fetch past transactions
+        let pastProjectTrxs = [];
+        // Transactions will be loaded from parent component or API
+        const allTransactions = [];
 
         // 4. Map each current material item into a simulation object
         return items.map((item, index) => {
@@ -210,7 +228,7 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
                 const updated = { ...item, [field]: value };
                 // If title (Nama Item) changes from dropdown, try to autofill category
                 if (field === 'title' && value) {
-                    const activeMaterials = materials && materials.length > 0 ? materials : MATERIAL_DATABASE;
+                    const activeMaterials = materials && materials.length > 0 ? materials : [];
                     const material = activeMaterials.find(m => m.name === value);
                     if (material) {
                         updated.unit = material.unit || '';
@@ -312,7 +330,7 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
     if (!isOpen) return null;
 
     // Filter project options
-    const projectOptions = PROJECT_DATA.map(p => ({ value: p.name, label: p.name }));
+    const projectOptions = projectData.map(p => ({ value: p.name, label: p.name }));
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -441,7 +459,7 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
                                                         value={item.title}
                                                         onChange={(val) => handleItemChange(item.id, 'title', val)}
                                                         placeholder="Pilih Material / Ketik Manual..."
-                                                        options={(materials && materials.length > 0 ? materials : MATERIAL_DATABASE).map(m => ({ value: m.name, label: m.name }))}
+                                                        options={(materials && materials.length > 0 ? materials : []).map(m => ({ value: m.name, label: m.name }))}
                                                     />
                                                 </div>
                                                 {/* Categories (Auto) */}
@@ -569,7 +587,7 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
                                                 value={payee}
                                                 onChange={(val) => setPayee(val)}
                                                 placeholder="Pilih atau Ketik Nama Penerima/Toko..."
-                                                options={SUBCON_DATABASE.map(s => ({ value: s.name, label: s.name }))}
+                                                options={subcontractors.map(s => ({ value: s.name, label: s.name }))}
                                             />
                                         </div>
                                     </div>

@@ -1,34 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { DEFAULT_USERS } from '../data/userData';
+import { api } from '../lib/api';
 import UserModal from '../components/UserModal';
 import RoleManagement from '../components/RoleManagement';
 import Sidebar from '../components/Sidebar';
 
 export default function UserManagement() {
-    const [users, setUsers] = useState(() => {
-        const saved = localStorage.getItem('users');
-        return saved ? JSON.parse(saved) : DEFAULT_USERS;
-    });
+    const [users, setUsers] = useState([]);
 
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('users'); // 'users' or 'roles'
+    const [activeTab, setActiveTab] = useState('users');
 
     useEffect(() => {
-        localStorage.setItem('users', JSON.stringify(users));
-        window.dispatchEvent(new Event('storage'));
-    }, [users]);
-
-    // Listen for external user data changes (e.g. from RoleManagement reassignment)
-    useEffect(() => {
-        const handler = () => {
-            const saved = localStorage.getItem('users');
-            if (saved) setUsers(JSON.parse(saved));
-        };
-        window.addEventListener('storage', handler);
-        return () => window.removeEventListener('storage', handler);
+        (async () => {
+            try {
+                const data = await api.users.list();
+                setUsers(data || []);
+            } catch (err) { console.error('Failed to load users:', err); }
+        })();
     }, []);
 
     const handleAddClick = () => {
@@ -41,28 +32,35 @@ export default function UserManagement() {
         setIsUserModalOpen(true);
     };
 
-    const handleDeleteUser = (userId) => {
+    const handleDeleteUser = async (userId) => {
         if (!window.confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) return;
-        const updatedList = users.filter(u => u.id !== userId);
-        setUsers(updatedList);
+        try {
+            await api.users.remove(userId);
+            setUsers(prev => prev.filter(u => u.id !== userId));
+        } catch (err) { console.error('Failed to delete user:', err); }
     };
 
-    const handleSaveUser = (userData) => {
-        if (editingUser) {
-            const updatedUsers = users.map(u => u.id === userData.id ? { ...u, ...userData } : u);
-            setUsers(updatedUsers);
-        } else {
-            const currentYear = new Date().getFullYear();
-            const sequenceStr = String(users.length + 1).padStart(3, '0');
-            const newId = `USR-${currentYear}-${sequenceStr}`;
+    const handleSaveUser = async (userData) => {
+        try {
+            if (editingUser) {
+                await api.users.update(userData.id, userData);
+                setUsers(prev => prev.map(u => u.id === userData.id ? { ...u, ...userData } : u));
+            } else {
+                const saved = await api.users.create(userData);
+                setUsers(prev => [...prev, saved]);
+            }
+        } catch (err) { console.error('Failed to save user:', err); }
+    };
 
-            const newUser = {
-                ...userData,
-                id: newId,
-                status: 'Active',
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name)}&background=random`
-            };
-            setUsers([...users, newUser]);
+    const handleActivateUser = async (userId) => {
+        const role = window.prompt('Pilih role untuk pengguna ini:\n• Admin\n• Project Manager\n• Staff\n• Viewer', 'Project Manager');
+        if (!role) return;
+        try {
+            const updated = await api.users.activate(userId, role);
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updated } : u));
+        } catch (err) {
+            console.error('Failed to activate user:', err);
+            alert('Gagal mengaktifkan pengguna.');
         }
     };
 
@@ -104,8 +102,8 @@ export default function UserManagement() {
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key)}
                                     className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-all ${activeTab === tab.key
-                                            ? 'bg-primary text-white shadow-sm shadow-primary/20'
-                                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                                         }`}
                                 >
                                     <span className="material-icons-round text-[18px]">{tab.icon}</span>
@@ -161,12 +159,19 @@ export default function UserManagement() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4">
-                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${user.role === 'Admin' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20' :
-                                                                user.role === 'Project Manager' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' :
-                                                                    'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-700/50'
-                                                                }`}>
-                                                                {user.role}
-                                                            </span>
+                                                            {user.status === 'Pending' ? (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20">
+                                                                    <span className="material-icons-round text-[14px]">hourglass_top</span>
+                                                                    Pending
+                                                                </span>
+                                                            ) : (
+                                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${user.role === 'Admin' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:border-purple-500/20' :
+                                                                    user.role === 'Project Manager' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20' :
+                                                                        'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-700/30 dark:text-slate-300 dark:border-slate-700/50'
+                                                                    }`}>
+                                                                    {user.role || 'Belum diatur'}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                                                             {user.email}
@@ -178,6 +183,16 @@ export default function UserManagement() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                {user.status === 'Pending' && (
+                                                                    <button
+                                                                        onClick={() => handleActivateUser(user.id)}
+                                                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center gap-1"
+                                                                        title="Aktifkan Pengguna"
+                                                                    >
+                                                                        <span className="material-icons-round text-[16px]">check_circle</span>
+                                                                        Aktifkan
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     onClick={() => handleEditClick(user)}
                                                                     className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"

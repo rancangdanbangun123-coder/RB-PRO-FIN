@@ -38,10 +38,14 @@ export default function SignUp() {
         }
 
         setLoading(true);
-        setTimeout(() => {
-            const result = signup(fullname.trim(), email, password);
+        setTimeout(async () => {
+            const result = await signup(fullname.trim(), email, password);
             if (result.success) {
-                navigate('/dashboard');
+                if (result.user?.status === 'Active') {
+                    navigate('/dashboard');
+                } else {
+                    navigate('/pending');
+                }
             } else {
                 setError(result.error);
                 setLoading(false);

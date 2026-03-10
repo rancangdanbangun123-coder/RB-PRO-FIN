@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router-dom";
 import Sidebar from '../components/Sidebar';
-import { updateMaterialsWithNewPrefixes, cascadeSubcontractorMaterialIds } from '../utils/materialUtils';
+import { api } from '../lib/api';
 
 export default function CategoryEdit() {
     const { id } = useParams();
@@ -10,75 +10,31 @@ export default function CategoryEdit() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        const existing = JSON.parse(localStorage.getItem("categories")) || [];
-        const category = existing.find((c) => String(c.id) === String(id));
-        if (category) {
-            setName(category.name);
-        } else {
-            alert("Category not found!");
-            navigate("/category");
-        }
+        (async () => {
+            try {
+                const data = await api.categories.list();
+                const cats = Array.isArray(data) ? data : (data.categories || []);
+                const category = cats.find((c) => String(c.id) === String(id));
+                if (category) {
+                    setName(category.name);
+                } else {
+                    alert("Category not found!");
+                    navigate("/category");
+                }
+            } catch (err) { console.error(err); }
+        })();
     }, [id, navigate]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!name.trim()) return;
 
-        const existing = JSON.parse(localStorage.getItem("categories")) || [];
-        const currentCategory = existing.find(c => String(c.id) === String(id));
-        const oldName = currentCategory ? currentCategory.name : "";
-
-        // Check for duplicates (excluding current category)
-        const isDuplicate = existing.some(
-            (cat) => cat.name.toLowerCase() === name.trim().toLowerCase() && String(cat.id) !== String(id)
-        );
-
-        if (isDuplicate) {
-            alert("Kategori dengan nama ini sudah ada!");
-            return;
+        try {
+            await api.categories.update(id, { name: name.trim() });
+            navigate("/category");
+        } catch (err) {
+            alert(err.message || "Gagal mengubah kategori.");
         }
-
-        const updatedCategories = existing.map((cat) =>
-            String(cat.id) === String(id) ? { ...cat, name: name.trim() } : cat
-        );
-
-        const existingMaterialsJSON = localStorage.getItem("materials");
-        if (existingMaterialsJSON && typeof oldName !== "undefined") {
-            const rawMaterials = JSON.parse(existingMaterialsJSON);
-            let materialsChangedToNewName = false;
-
-            // First, update the category name in the materials
-            const updatedCategoryNameMaterials = rawMaterials.map(m => {
-                if (m.category === oldName) {
-                    materialsChangedToNewName = true;
-                    return { ...m, category: name.trim() };
-                }
-                return m;
-            });
-
-            if (materialsChangedToNewName) {
-                // Now apply prefix cascading based on the new category name
-                const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(updatedCategoryNameMaterials);
-
-                console.log(`Cascade Rename: ${oldName} -> ${name.trim()} triggered`);
-                localStorage.setItem("materials", JSON.stringify(updatedMaterials));
-
-                if (hasChanges) {
-                    cascadeSubcontractorMaterialIds(oldToNewIdMap);
-                }
-                window.dispatchEvent(new Event("storage"));
-            } else {
-                console.log(`Cascade Rename: No materials found for category ${oldName}`);
-            }
-        }
-
-        localStorage.setItem(
-            "categories",
-            JSON.stringify(updatedCategories)
-        );
-
-        navigate("/category");
     };
 
     return (

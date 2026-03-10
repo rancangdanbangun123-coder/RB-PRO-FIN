@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { projects as PROJECT_DATA } from '../data/projectData';
+import { api } from '../lib/api';
 import AddTransactionModal from '../components/AddTransactionModal';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
@@ -21,59 +21,64 @@ export default function Akuntansi() {
     const [subCategories, setSubCategories] = useState([]);
     const [allTransactions, setAllTransactions] = useState([]);
     const [materials, setMaterials] = useState([]);
+    const [projectsList, setProjectsList] = useState([]);
 
     useEffect(() => {
-        const catData = JSON.parse(localStorage.getItem("categories")) || [];
-        const subData = JSON.parse(localStorage.getItem("subCategories")) || [];
-        const trxs = JSON.parse(localStorage.getItem("transactions")) || [];
-        const mats = JSON.parse(localStorage.getItem("materials")) || [];
-        setCategories(catData);
-        setSubCategories(subData);
-        setAllTransactions(trxs);
-        setMaterials(mats);
+        (async () => {
+            try {
+                const [cats, trxs, mats, projs] = await Promise.all([
+                    api.categories.list(),
+                    api.transactions.list(),
+                    api.materials.list(),
+                    api.projects.list(),
+                ]);
+                const catList = Array.isArray(cats) ? cats : (cats.categories || []);
+                const subList = Array.isArray(cats) ? [] : (cats.subCategories || []);
+                setCategories(catList);
+                setSubCategories(subList);
+                setAllTransactions(trxs || []);
+                setMaterials(mats || []);
+                setProjectsList(projs || []);
+            } catch (err) { console.error('Failed to load accounting data:', err); }
+        })();
     }, []);
 
-    const handleSaveTransaction = (newTrx) => {
-        // If in 'Semua Proyek' view, the modal sends the chosen project NAME in newTrx.project
-        // We need to find the corresponding project ID to save it correctly.
+    const handleSaveTransaction = async (newTrx) => {
         let actualProjectId = selectedProjectId;
         if (selectedProjectId === 'all' && newTrx.project) {
-            const matchedProject = PROJECT_DATA.find(p => p.name === newTrx.project);
-            if (matchedProject) {
-                actualProjectId = matchedProject.id;
-            }
+            const matchedProject = projectsList.find(p => p.name === newTrx.project);
+            if (matchedProject) actualProjectId = matchedProject.id;
         }
 
         const trxToSave = { ...newTrx, projectId: actualProjectId, createdBy: currentUser?.name || 'Sistem' };
 
-        const existingIndex = allTransactions.findIndex(t => t.id === trxToSave.id);
-        let updatedTrxs;
-        if (existingIndex >= 0) {
-            updatedTrxs = [...allTransactions];
-            updatedTrxs[existingIndex] = trxToSave;
-        } else {
-            updatedTrxs = [trxToSave, ...allTransactions];
-        }
-
-        setAllTransactions(updatedTrxs);
-        localStorage.setItem("transactions", JSON.stringify(updatedTrxs));
+        try {
+            if (allTransactions.some(t => t.id === trxToSave.id)) {
+                await api.transactions.update(trxToSave.id, trxToSave);
+                setAllTransactions(prev => prev.map(t => t.id === trxToSave.id ? trxToSave : t));
+            } else {
+                const saved = await api.transactions.create(trxToSave);
+                setAllTransactions(prev => [saved, ...prev]);
+            }
+        } catch (err) { console.error('Failed to save transaction:', err); }
     };
 
-    const handleDeleteTransaction = (id) => {
+    const handleDeleteTransaction = async (id) => {
         if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-            const updatedTrxs = allTransactions.filter(t => t.id !== id);
-            setAllTransactions(updatedTrxs);
-            localStorage.setItem("transactions", JSON.stringify(updatedTrxs));
+            try {
+                await api.transactions.remove(id);
+                setAllTransactions(prev => prev.filter(t => t.id !== id));
+            } catch (err) { console.error('Failed to delete transaction:', err); }
         }
     };
 
     const userProjects = useMemo(() => {
         const role = currentUser?.role?.toLowerCase() || '';
         if (hasPermission('view_all_projects') || role === 'logistik') {
-            return PROJECT_DATA;
+            return projectsList;
         }
-        return PROJECT_DATA.filter(p => p.pm === currentUser?.name);
-    }, [currentUser, hasPermission]);
+        return projectsList.filter(p => p.pm === currentUser?.name);
+    }, [currentUser, hasPermission, projectsList]);
 
     const selectedProjectName = useMemo(() => {
         if (selectedProjectId === 'all') return 'Semua Proyek';
@@ -266,7 +271,7 @@ export default function Akuntansi() {
                                                 <p className={`font-bold ${trx.type === 'in' ? 'text-green-600 dark:text-green-500' : 'text-slate-900 dark:text-white'}`}>
                                                     {trx.type === 'in' ? '+' : '-'}{formatCurrency(trx.amount)}
                                                 </p>
-                                                <p className="text-xs text-slate-500 mt-0.5">{trx.projectId && trx.projectId !== 'all' ? (PROJECT_DATA.find(p => p.id === trx.projectId)?.name || trx.projectId) : 'Semua Proyek'}</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">{trx.projectId && trx.projectId !== 'all' ? (projectsList.find(p => p.id === trx.projectId)?.name || trx.projectId) : 'Semua Proyek'}</p>
                                             </div>
                                             <button
                                                 onClick={(e) => {
@@ -328,8 +333,8 @@ export default function Akuntansi() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
                                 <div>
                                     <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Proyek</h3>
-                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={PROJECT_DATA.find(p => p.id === selectedTransaction.projectId)?.name || 'Multi Proyek'}>
-                                        {PROJECT_DATA.find(p => p.id === selectedTransaction.projectId)?.name || 'Multi Proyek'}
+                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={projectsList.find(p => p.id === selectedTransaction.projectId)?.name || 'Multi Proyek'}>
+                                        {projectsList.find(p => p.id === selectedTransaction.projectId)?.name || 'Multi Proyek'}
                                     </p>
                                 </div>
                                 <div>
