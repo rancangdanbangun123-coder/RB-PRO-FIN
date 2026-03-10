@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ALL_PERMISSIONS, getRolePermissions, saveRolePermissions } from '../context/AuthContext';
+import { ALL_PERMISSIONS, useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 
 // Group icon map
@@ -28,7 +28,7 @@ const GROUP_COLORS = {
 };
 
 export default function RoleManagement() {
-    const [rolePerms, setRolePerms] = useState(() => getRolePermissions());
+    const { livePermissions: rolePerms, updatePermissions: saveRolePermissions } = useAuth();
     const [isAddingRole, setIsAddingRole] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [expandedRole, setExpandedRole] = useState(null);
@@ -53,9 +53,7 @@ export default function RoleManagement() {
     }, []);
 
     useEffect(() => {
-        const handler = () => setRolePerms(getRolePermissions());
-        window.addEventListener('rolePermissionsUpdated', handler);
-        return () => window.removeEventListener('rolePermissionsUpdated', handler);
+        // No longer needed: AuthContext handles 'rolePermissionsUpdated' event synchronization
     }, []);
 
     const showToast = (message, type = 'success') => {
@@ -78,9 +76,9 @@ export default function RoleManagement() {
         return allUsers.filter(u => u.role === roleName).length;
     };
 
-    const roleNames = Object.keys(rolePerms);
+    const roleNames = Object.keys(rolePerms || {});
 
-    const togglePermission = (roleName, permKey) => {
+    const togglePermission = async (roleName, permKey) => {
         if (roleName === 'Admin') {
             showToast('Role Admin tidak dapat diubah', 'error');
             return;
@@ -90,11 +88,10 @@ export default function RoleManagement() {
             ? current.filter(p => p !== permKey)
             : [...current, permKey];
         const newPerms = { ...rolePerms, [roleName]: updated };
-        setRolePerms(newPerms);
-        saveRolePermissions(newPerms);
+        await saveRolePermissions(newPerms);
     };
 
-    const toggleGroup = (roleName, groupName) => {
+    const toggleGroup = async (roleName, groupName) => {
         if (roleName === 'Admin') {
             showToast('Role Admin tidak dapat diubah', 'error');
             return;
@@ -112,11 +109,10 @@ export default function RoleManagement() {
             updated = [...current, ...toAdd];
         }
         const newPerms = { ...rolePerms, [roleName]: updated };
-        setRolePerms(newPerms);
-        saveRolePermissions(newPerms);
+        await saveRolePermissions(newPerms);
     };
 
-    const handleAddRole = () => {
+    const handleAddRole = async () => {
         const trimmed = newRoleName.trim();
         if (!trimmed) return;
         if (roleNames.some(r => r.toLowerCase() === trimmed.toLowerCase())) {
@@ -124,8 +120,7 @@ export default function RoleManagement() {
             return;
         }
         const newPerms = { ...rolePerms, [trimmed]: ['view_proyek'] };
-        setRolePerms(newPerms);
-        saveRolePermissions(newPerms);
+        await saveRolePermissions(newPerms);
         setNewRoleName('');
         setIsAddingRole(false);
         setExpandedRole(trimmed);
@@ -158,8 +153,7 @@ export default function RoleManagement() {
         try { await api.permissions.deleteRole(roleName); } catch (e) { /* may not be a custom role */ }
 
         const { [roleName]: _, ...rest } = rolePerms;
-        setRolePerms(rest);
-        saveRolePermissions(rest);
+        await saveRolePermissions(rest);
         if (expandedRole === roleName) setExpandedRole(null);
         showToast(`Role "${roleName}" berhasil dihapus`);
     };
