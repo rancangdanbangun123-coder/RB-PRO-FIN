@@ -104,7 +104,8 @@ export default function CategoryList() {
 
     const executeCategoryDelete = async (id, action, targetId) => {
         try {
-            await api.categories.remove(id);
+            const migrateTo = (action === 'reassign' && targetId) ? targetId : undefined;
+            await api.categories.remove(id, migrateTo);
             const updatedCategories = categories.filter((c) => c.id !== id);
             const updatedSubs = subCategories.filter(s => s.categoryId !== id && s.categoryId !== id.toString());
             setCategories(updatedCategories);
@@ -148,7 +149,8 @@ export default function CategoryList() {
 
     const executeSubcategoryDelete = async (subId, action, targetId) => {
         try {
-            await api.categories.removeSub(subId);
+            const migrateTo = (action === 'reassign' && targetId) ? targetId : undefined;
+            await api.categories.removeSub(subId, migrateTo);
             const updatedSubs = subCategories.filter(s => s.id !== subId);
             setSubCategories(updatedSubs);
         } catch (err) { console.error('Failed to delete subcategory:', err); }

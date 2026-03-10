@@ -79,10 +79,10 @@ export const api = {
         list: () => api.get('/categories'),
         create: (data) => api.post('/categories', data),
         update: (id, data) => api.put(`/categories/${id}`, data),
-        remove: (id) => api.delete(`/categories/${id}`),
+        remove: (id, migrateTo) => api.delete(migrateTo ? `/categories/${id}?migrateTo=${migrateTo}` : `/categories/${id}`),
         createSub: (catId, data) => api.post(`/categories/${catId}/subcategories`, data),
         updateSub: (id, data) => api.put(`/categories/subcategories/${id}`, data),
-        removeSub: (id) => api.delete(`/categories/subcategories/${id}`),
+        removeSub: (id, migrateTo) => api.delete(migrateTo ? `/categories/subcategories/${id}?migrateTo=${migrateTo}` : `/categories/subcategories/${id}`),
         import: (items) => api.post('/categories/import', { items }),
     },
     materials: {

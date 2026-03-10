@@ -26,7 +26,35 @@ export const categoriesService = {
         return updated;
     },
 
-    async remove(id: string) {
+    async remove(id: string, migrateToId?: string) {
+        if (migrateToId) {
+            // Find the target category to get its name
+            const targetCat = await this.findById(migrateToId);
+            if (targetCat) {
+                // Update all materials pointing to the old category
+                // @ts-ignore - DB types might be strict, but we update both ID and name
+                await db.update(materials)
+                    .set({
+                        categoryId: migrateToId,
+                        category: targetCat.name,
+                        subCategoryId: null, // Clear subcategory since they moved to a new parent
+                        subCategory: null
+                    })
+                    .where(eq(materials.categoryId, id));
+            }
+        } else {
+            // If no migration, we must clear the category fields for orphaned materials
+            // @ts-ignore
+            await db.update(materials)
+                .set({
+                    categoryId: null,
+                    category: null,
+                    subCategoryId: null,
+                    subCategory: null
+                })
+                .where(eq(materials.categoryId, id));
+        }
+
         const [deleted] = await db.delete(categories).where(eq(categories.id, id)).returning();
         return deleted;
     },
@@ -42,7 +70,25 @@ export const categoriesService = {
         return updated;
     },
 
-    async removeSubCategory(id: string) {
+    async removeSubCategory(id: string, migrateToId?: string) {
+        if (migrateToId) {
+            const [targetSub] = await db.select().from(subCategories).where(eq(subCategories.id, migrateToId));
+            if (targetSub) {
+                // @ts-ignore
+                await db.update(materials)
+                    .set({
+                        subCategoryId: migrateToId,
+                        subCategory: targetSub.name
+                    })
+                    .where(eq(materials.subCategoryId, id));
+            }
+        } else {
+            // @ts-ignore
+            await db.update(materials)
+                .set({ subCategoryId: null, subCategory: null })
+                .where(eq(materials.subCategoryId, id));
+        }
+
         const [deleted] = await db.delete(subCategories).where(eq(subCategories.id, id)).returning();
         return deleted;
     },

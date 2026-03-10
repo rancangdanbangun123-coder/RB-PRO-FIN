@@ -24,7 +24,8 @@ app.put('/:id', requirePermission('create_category'), async (c) => {
 });
 
 app.delete('/:id', requirePermission('delete_category'), async (c) => {
-    const deleted = await categoriesService.remove(c.req.param('id'));
+    const migrateTo = c.req.query('migrateTo');
+    const deleted = await categoriesService.remove(c.req.param('id'), migrateTo);
     if (!deleted) return c.json({ error: 'Category not found' }, 404);
     return c.json({ success: true });
 });
@@ -44,7 +45,8 @@ app.put('/subcategories/:id', requirePermission('create_category'), async (c) =>
 });
 
 app.delete('/subcategories/:id', requirePermission('delete_category'), async (c) => {
-    const deleted = await categoriesService.removeSubCategory(c.req.param('id'));
+    const migrateTo = c.req.query('migrateTo');
+    const deleted = await categoriesService.removeSubCategory(c.req.param('id'), migrateTo);
     if (!deleted) return c.json({ error: 'Sub-category not found' }, 404);
     return c.json({ success: true });
 });
