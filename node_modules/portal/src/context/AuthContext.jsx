@@ -213,6 +213,11 @@ export function AuthProvider({ children }) {
 
     const isPending = currentUser && currentUser.status !== 'Active';
 
+    const updatePermissions = async (newPerms) => {
+        setLivePermissions(newPerms);
+        localStorage.setItem('rolePermissions', JSON.stringify(newPerms));
+    };
+
     const value = {
         currentUser,
         login,
@@ -223,6 +228,8 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!currentUser,
         isPending,
         loading,
+        livePermissions,
+        updatePermissions,
     };
 
     return (
