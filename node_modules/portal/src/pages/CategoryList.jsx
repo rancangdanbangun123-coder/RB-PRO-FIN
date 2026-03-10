@@ -492,7 +492,13 @@ export default function CategoryList() {
                     onUpdate={async () => {
                         try {
                             const data = await api.categories.list();
-                            const subData = Array.isArray(data) ? [] : (data.subCategories || []);
+                            const subData = Array.isArray(data) ? data.reduce((acc, cat) => {
+                                if (cat.subCategories && Array.isArray(cat.subCategories)) {
+                                    acc.push(...cat.subCategories);
+                                }
+                                return acc;
+                            }, []) : [];
+                            setCategories(data);
                             setSubCategories(subData);
                         } catch (err) { console.error(err); }
                     }}
