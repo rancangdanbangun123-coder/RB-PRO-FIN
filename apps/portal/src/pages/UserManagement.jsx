@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import UserModal from '../components/UserModal';
 import UserActivateModal from '../components/UserActivateModal';
 import RoleManagement from '../components/RoleManagement';
 import Sidebar from '../components/Sidebar';
 
 export default function UserManagement() {
+    const { currentUser, hasPermission } = useAuth();
     const [users, setUsers] = useState([]);
 
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -189,7 +191,7 @@ export default function UserManagement() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {user.status === 'Pending' && currentUser?.permissions?.includes('approve_user') && (
+                                                                {user.status === 'Pending' && hasPermission('approve_user') && (
                                                                     <button
                                                                         onClick={() => handleActivateClick(user)}
                                                                         className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-green-500/20"
@@ -199,7 +201,7 @@ export default function UserManagement() {
                                                                         Aktifkan
                                                                     </button>
                                                                 )}
-                                                                {currentUser?.permissions?.includes('edit_user') && (
+                                                                {hasPermission('edit_user') && (
                                                                     <button
                                                                         onClick={() => handleEditClick(user)}
                                                                         className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
@@ -208,7 +210,7 @@ export default function UserManagement() {
                                                                         <span className="material-icons-round text-[20px]">edit</span>
                                                                     </button>
                                                                 )}
-                                                                {currentUser?.permissions?.includes('delete_user') && (
+                                                                {hasPermission('delete_user') && (
                                                                     <button
                                                                         onClick={() => handleDeleteUser(user.id)}
                                                                         className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
