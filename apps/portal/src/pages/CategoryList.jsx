@@ -47,7 +47,16 @@ export default function CategoryList() {
             try {
                 const data = await api.categories.list();
                 const catData = Array.isArray(data) ? data : (data.categories || []);
-                const subData = Array.isArray(data) ? [] : (data.subCategories || []);
+
+                // The backend returns an array of categories, each with a nested `subCategories` array.
+                // We need to flatten them out into the `subCategories` state since CategoryList manages them separately.
+                const subData = catData.reduce((acc, cat) => {
+                    if (cat.subCategories && Array.isArray(cat.subCategories)) {
+                        acc.push(...cat.subCategories);
+                    }
+                    return acc;
+                }, []);
+
                 setCategories(catData);
                 setSubCategories(subData);
                 if (catData.length > 0) {
