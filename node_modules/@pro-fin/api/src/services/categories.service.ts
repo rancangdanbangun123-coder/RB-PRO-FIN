@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import { categories, subCategories } from '../db/schema/index.js';
+import { categories, subCategories, materials } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 
 export const categoriesService = {

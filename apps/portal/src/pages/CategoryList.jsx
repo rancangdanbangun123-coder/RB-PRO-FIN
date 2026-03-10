@@ -81,25 +81,19 @@ export default function CategoryList() {
             ).length;
         } catch (err) { console.error(err); }
 
-        if (affectedCount > 0) {
-            // Show reassign modal
-            const otherCategories = categories
-                .filter(c => c.id !== id && c.name.toLowerCase() !== 'aset')
-                .map(c => ({ id: c.id, name: c.name }));
-            setReassignModal({
-                isOpen: true,
-                type: 'category',
-                itemName: cat.name,
-                deletingId: id,
-                affectedCount,
-                availableTargets: otherCategories
-            });
-        } else {
-            // No materials affected, just confirm and delete
-            if (window.confirm(`Hapus kategori "${cat.name}" beserta semua sub-kategorinya?`)) {
-                executeCategoryDelete(id);
-            }
-        }
+        // ALWAYS show reassign modal to give user control (as requested)
+        const otherCategories = categories
+            .filter(c => c.id !== id && c.name.toLowerCase() !== 'aset')
+            .map(c => ({ id: c.id, name: c.name }));
+
+        setReassignModal({
+            isOpen: true,
+            type: 'category',
+            itemName: cat.name,
+            deletingId: id,
+            affectedCount,
+            availableTargets: otherCategories
+        });
     };
 
     const executeCategoryDelete = async (id, action, targetId) => {
@@ -127,24 +121,19 @@ export default function CategoryList() {
             ).length;
         } catch (err) { console.error(err); }
 
-        if (affectedCount > 0) {
-            // Find sibling subcategories (same parent category)
-            const siblingSubCategories = subCategories
-                .filter(s => s.id !== subId && (s.categoryId === sub.categoryId || String(s.categoryId) === String(sub.categoryId)))
-                .map(s => ({ id: s.id, name: s.name }));
-            setReassignModal({
-                isOpen: true,
-                type: 'subcategory',
-                itemName: sub.name,
-                deletingId: subId,
-                affectedCount,
-                availableTargets: siblingSubCategories
-            });
-        } else {
-            if (window.confirm(`Hapus sub-kategori "${sub.name}"?`)) {
-                executeSubcategoryDelete(subId);
-            }
-        }
+        // Find sibling subcategories (same parent category)
+        const siblingSubCategories = subCategories
+            .filter(s => s.id !== subId && (s.categoryId === sub.categoryId || String(s.categoryId) === String(sub.categoryId)))
+            .map(s => ({ id: s.id, name: s.name }));
+
+        setReassignModal({
+            isOpen: true,
+            type: 'subcategory',
+            itemName: sub.name,
+            deletingId: subId,
+            affectedCount,
+            availableTargets: siblingSubCategories
+        });
     };
 
     const executeSubcategoryDelete = async (subId, action, targetId) => {
