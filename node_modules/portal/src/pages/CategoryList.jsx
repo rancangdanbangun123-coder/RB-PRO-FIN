@@ -204,9 +204,24 @@ export default function CategoryList() {
         if (addedCats > 0 || addedSubs > 0) {
             setCategories(newCategories);
             setSubCategories(newSubCategories);
+
+            // Format data exactly how the backend categoriesService.bulkImport expects it:
+            const importPayload = newCategories.map(cat => ({
+                category: { id: cat.id, name: cat.name, icon: cat.icon || 'category' },
+                subs: newSubCategories
+                    .filter(sub => sub.categoryId === cat.id)
+                    .map(sub => ({
+                        id: sub.id,
+                        categoryId: cat.id,
+                        name: sub.name,
+                        code: sub.code
+                    }))
+            }));
+
             try {
-                await api.categories.import({ categories: newCategories, subCategories: newSubCategories });
-            } catch (err) { console.error('Failed to import:', err); }
+                await api.categories.import(importPayload);
+            } catch (err) { console.error('Failed to import to database:', err); }
+
             alert(`Berhasil mengimpor! Menambahkan ${addedCats} Kategori baru dan ${addedSubs} Sub-kategori baru.`);
             setExpandedCategories(newCategories.map(c => c.id));
         } else {
