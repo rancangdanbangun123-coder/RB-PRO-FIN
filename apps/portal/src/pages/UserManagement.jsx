@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import UserModal from '../components/UserModal';
+import UserActivateModal from '../components/UserActivateModal';
 import RoleManagement from '../components/RoleManagement';
 import Sidebar from '../components/Sidebar';
 
@@ -9,7 +10,9 @@ export default function UserManagement() {
     const [users, setUsers] = useState([]);
 
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [isActivateModalOpen, setIsActivateModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
+    const [userToActivate, setUserToActivate] = useState(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('users');
 
@@ -52,9 +55,12 @@ export default function UserManagement() {
         } catch (err) { console.error('Failed to save user:', err); }
     };
 
-    const handleActivateUser = async (userId) => {
-        const role = window.prompt('Pilih role untuk pengguna ini:\n• Admin\n• Project Manager\n• Staff\n• Viewer', 'Project Manager');
-        if (!role) return;
+    const handleActivateClick = (user) => {
+        setUserToActivate(user);
+        setIsActivateModalOpen(true);
+    };
+
+    const handleConfirmActivate = async (userId, role) => {
         try {
             const updated = await api.users.activate(userId, role);
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updated } : u));
@@ -183,30 +189,34 @@ export default function UserManagement() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                {user.status === 'Pending' && (
+                                                                {user.status === 'Pending' && currentUser?.permissions?.includes('approve_user') && (
                                                                     <button
-                                                                        onClick={() => handleActivateUser(user.id)}
-                                                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center gap-1"
+                                                                        onClick={() => handleActivateClick(user)}
+                                                                        className="px-3 py-1.5 text-xs font-semibold text-white bg-green-500 hover:bg-green-600 rounded-lg transition-colors flex items-center gap-1 shadow-sm shadow-green-500/20"
                                                                         title="Aktifkan Pengguna"
                                                                     >
                                                                         <span className="material-icons-round text-[16px]">check_circle</span>
                                                                         Aktifkan
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    onClick={() => handleEditClick(user)}
-                                                                    className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                                                                    title="Edit Pengguna"
-                                                                >
-                                                                    <span className="material-icons-round text-[20px]">edit</span>
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteUser(user.id)}
-                                                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                                                                    title="Hapus Pengguna"
-                                                                >
-                                                                    <span className="material-icons-round text-[20px]">delete</span>
-                                                                </button>
+                                                                {currentUser?.permissions?.includes('edit_user') && (
+                                                                    <button
+                                                                        onClick={() => handleEditClick(user)}
+                                                                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                                                                        title="Edit Pengguna"
+                                                                    >
+                                                                        <span className="material-icons-round text-[20px]">edit</span>
+                                                                    </button>
+                                                                )}
+                                                                {currentUser?.permissions?.includes('delete_user') && (
+                                                                    <button
+                                                                        onClick={() => handleDeleteUser(user.id)}
+                                                                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                                                                        title="Hapus Pengguna"
+                                                                    >
+                                                                        <span className="material-icons-round text-[20px]">delete</span>
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -238,6 +248,20 @@ export default function UserManagement() {
                     </div>
                 </div>
             </main>
+
+            <UserModal
+                isOpen={isUserModalOpen}
+                onClose={() => setIsUserModalOpen(false)}
+                onSave={handleSaveUser}
+                initialData={editingUser}
+            />
+
+            <UserActivateModal
+                isOpen={isActivateModalOpen}
+                onClose={() => setIsActivateModalOpen(false)}
+                onConfirm={handleConfirmActivate}
+                user={userToActivate}
+            />
         </div>
     );
 }

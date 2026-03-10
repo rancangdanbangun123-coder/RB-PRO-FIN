@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ProfileModal from './ProfileModal';
 
 /**
  * Shared Sidebar component used across all pages.
@@ -11,7 +12,8 @@ import { useAuth } from '../context/AuthContext';
  *  - onCloseMobileMenu: () => void
  */
 export default function Sidebar({ activePage, isMobileMenuOpen, onCloseMobileMenu }) {
-    const { currentUser, hasPermission, logout } = useAuth();
+    const { currentUser, logout, hasPermission } = useAuth();
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     const activeClass = 'bg-primary/10 text-primary font-medium';
     const inactiveClass = 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-hover hover:text-slate-900 dark:hover:text-white font-medium transition-colors';
@@ -122,18 +124,31 @@ export default function Sidebar({ activePage, isMobileMenuOpen, onCloseMobileMen
                         />
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{currentUser?.name || 'User'}</p>
-                            <p className="text-xs text-slate-500 truncate">{currentUser?.role || 'Member'}</p>
+                            <p className="text-xs text-slate-500 truncate" title={currentUser?.email}>{currentUser?.email}</p>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                         <button
-                            onClick={(e) => { e.stopPropagation(); logout(); }}
-                            className="text-slate-400 hover:text-red-500 transition-colors"
-                            title="Logout"
+                            onClick={() => setIsProfileModalOpen(true)}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            title="Edit Profil"
+                        >
+                            <span className="material-icons-round text-[18px]">edit</span>
+                            <span className="hidden sm:inline">Edit Profil</span>
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                            title="Logout Aplikasi"
                         >
                             <span className="material-icons-round text-[18px]">logout</span>
+                            <span className="hidden sm:inline">Keluar</span>
                         </button>
                     </div>
                 </div>
             </aside>
+
+            <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />
 
             {/* Mobile overlay */}
             {isMobileMenuOpen && (

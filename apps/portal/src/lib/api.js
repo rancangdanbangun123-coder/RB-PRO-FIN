@@ -45,6 +45,7 @@ export const api = {
         update: (id, data) => api.put(`/users/${id}`, data),
         remove: (id) => api.delete(`/users/${id}`),
         activate: (id, role) => api.put(`/users/${id}/activate`, { role }),
+        updateProfile: (data) => api.put('/users/profile', data),
     },
     permissions: {
         listRoles: () => api.get('/permissions/roles'),

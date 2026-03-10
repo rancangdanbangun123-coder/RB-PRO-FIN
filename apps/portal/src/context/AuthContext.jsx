@@ -11,6 +11,7 @@ export const ALL_PERMISSIONS = [
     { key: 'create_user', label: 'Tambah Pengguna', icon: 'person_add', description: 'Buat akun pengguna baru', group: 'Pengguna' },
     { key: 'edit_user', label: 'Edit Pengguna', icon: 'edit', description: 'Ubah data pengguna', group: 'Pengguna' },
     { key: 'delete_user', label: 'Hapus Pengguna', icon: 'person_remove', description: 'Hapus akun pengguna', group: 'Pengguna' },
+    { key: 'approve_user', label: 'Persetujuan Pengguna', icon: 'how_to_reg', description: 'Mengaktifkan pengguna baru & mengatur role', group: 'Pengguna' },
     { key: 'manage_roles', label: 'Kelola Role', icon: 'admin_panel_settings', description: 'Buat, edit, hapus role & wewenang', group: 'Pengguna' },
     // ── Proyek ──
     { key: 'view_proyek', label: 'Lihat Proyek', icon: 'visibility', description: 'Akses halaman proyek', group: 'Proyek' },

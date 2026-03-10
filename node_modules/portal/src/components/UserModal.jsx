@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getRolePermissions } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function UserModal({ isOpen, onClose, onSave, initialData }) {
+    const { livePermissions } = useAuth();
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -13,7 +14,7 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
     const [animateIn, setAnimateIn] = useState(false);
 
     // Get all available roles from the dynamic rolePermissions store
-    const allRoles = Object.keys(getRolePermissions());
+    const allRoles = Object.keys(livePermissions || {});
 
     useEffect(() => {
         if (isOpen) {
