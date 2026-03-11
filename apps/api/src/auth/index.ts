@@ -53,6 +53,19 @@ export const auth = betterAuth({
     session: {
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // Update session age every 24 hours
+        cookieCache: {
+            enabled: true,
+            maxAge: 60 * 5, // 5 minutes
+        },
+    },
+    advanced: {
+        crossSubDomainCookies: {
+            enabled: true,
+        },
+        defaultCookieAttributes: {
+            sameSite: 'none',
+            secure: true,
+        },
     },
     trustedOrigins: [
         process.env.CORS_ORIGIN || 'http://localhost:5173',
