@@ -69,7 +69,7 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
                 </div>
 
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nama Lengkap</label>
                             <input
@@ -122,24 +122,23 @@ export default function UserModal({ isOpen, onClose, onSave, initialData }) {
                                 ))}
                             </select>
                         </div>
-                    </form>
-                </div>
 
-                <div className="p-6 border-t border-slate-200 dark:border-border-dark flex justify-end gap-3 bg-slate-50/50 dark:bg-card-dark rounded-b-2xl shrink-0 mt-auto">
-                    <button
-                        onClick={onClose}
-                        type="button"
-                        className="px-5 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                    >
-                        Batal
-                    </button>
-                    <button
-                        type="submit"
-                        form="user-form"
-                        className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm shadow-primary/20"
-                    >
-                        Simpan Pengguna
-                    </button>
+                        <div className="pt-4 border-t border-slate-200 dark:border-border-dark flex justify-end gap-3">
+                            <button
+                                onClick={onClose}
+                                type="button"
+                                className="px-5 py-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-sm shadow-primary/20"
+                            >
+                                Simpan Pengguna
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
