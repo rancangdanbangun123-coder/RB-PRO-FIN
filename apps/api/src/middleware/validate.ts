@@ -7,15 +7,15 @@ export { zValidator };
 
 // Helper to validate JSON body
 export function validateBody<T extends ZodSchema>(schema: T) {
-    return zValidator('json', schema);
+    return zValidator('json', schema as any);
 }
 
 // Helper to validate query params
 export function validateQuery<T extends ZodSchema>(schema: T) {
-    return zValidator('query', schema);
+    return zValidator('query', schema as any);
 }
 
 // Helper to validate route params
 export function validateParam<T extends ZodSchema>(schema: T) {
-    return zValidator('param', schema);
+    return zValidator('param', schema as any);
 }
