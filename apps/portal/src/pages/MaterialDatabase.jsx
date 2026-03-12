@@ -268,10 +268,60 @@ export default function MaterialDatabase() {
         }
     };
 
-    const processImportedData = (jsonData) => {
+    const processImportedData = async (jsonData) => {
         let addedMats = 0;
         const newMaterials = [];
         const skippedMats = [];
+        
+        let currentCategories = categories;
+        let currentSubCategories = subCategories;
+        
+        // 1. Pre-process and collect all unique categories and their subcategories
+        const uniqueCategoriesMap = new Map();
+
+        jsonData.forEach((row) => {
+            let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
+            let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
+            
+            if (category && category !== 'Uncategorized') {
+                if (!uniqueCategoriesMap.has(category)) {
+                    uniqueCategoriesMap.set(category, new Set());
+                }
+                if (subCategory && subCategory !== '-') {
+                    uniqueCategoriesMap.get(category).add(subCategory);
+                }
+            }
+        });
+
+        // 2. Auto-create any missing categories / subcategories synchronously BEFORE materials
+        if (uniqueCategoriesMap.size > 0) {
+            const categoriesPayload = [];
+            for (const [catName, subCatsSet] of uniqueCategoriesMap.entries()) {
+                const subCatsArray = Array.from(subCatsSet).map(subName => ({
+                    name: subName,
+                    code: subName.substring(0, 3).toUpperCase()
+                }));
+                
+                categoriesPayload.push({
+                    category: { name: catName },
+                    subs: subCatsArray
+                });
+            }
+            
+            try {
+                // The API actually expects { items: [...] } so we wrap it
+                await api.categories.import({ items: categoriesPayload });
+                
+                // Refresh local state lists immediately
+                const catsData = await api.categories.list();
+                currentCategories = Array.isArray(catsData) ? catsData : (catsData.categories || []);
+                currentSubCategories = Array.isArray(catsData) ? [] : (catsData.subCategories || []);
+                setCategories(currentCategories);
+                setSubCategories(currentSubCategories);
+            } catch (err) {
+                console.error("Failed to auto-create categories from import sync:", err);
+            }
+        }
 
         jsonData.forEach((row, index) => {
             const name = row['Nama Item'] || row['Nama Material'] || row['Nama'] || row.Name || row.name || row.Material || '';
@@ -279,14 +329,14 @@ export default function MaterialDatabase() {
             let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
 
             if (category && category !== 'Uncategorized') {
-                const matchedCategory = categories.find(c => c.name.toLowerCase() === category.toLowerCase());
+                const matchedCategory = currentCategories.find(c => c.name.toLowerCase() === category.toLowerCase());
                 if (matchedCategory) {
                     category = matchedCategory.name;
                 }
             }
 
             if (subCategory && subCategory !== '-') {
-                const matchedSub = subCategories.find(c => c.name.toLowerCase() === subCategory.toLowerCase());
+                const matchedSub = currentSubCategories.find(c => c.name.toLowerCase() === subCategory.toLowerCase());
                 if (matchedSub) {
                     subCategory = matchedSub.name;
                 }
@@ -401,7 +451,7 @@ export default function MaterialDatabase() {
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-                processImportedData(jsonData);
+                processImportedData(jsonData).catch(console.error);
             } catch (error) {
                 console.error("Error parsing file:", error);
                 alert("Terjadi kesalahan membaca file. Pastikan formatnya benar (.xlsx atau .csv).");
@@ -448,7 +498,7 @@ export default function MaterialDatabase() {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-            processImportedData(jsonData);
+            await processImportedData(jsonData);
             setImportLink('');
 
         } catch (error) {

@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
 import { categories, subCategories, materials } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 export const categoriesService = {
@@ -100,14 +100,45 @@ export const categoriesService = {
     async bulkImport(items: { category: typeof categories.$inferInsert; subs: (typeof subCategories.$inferInsert)[] }[]) {
         const results = [];
         for (const item of items) {
-            const [cat] = await db.insert(categories).values(item.category).onConflictDoNothing().returning();
-            if (cat && item.subs.length > 0) {
-                const subs = await db.insert(subCategories)
-                    .values(item.subs.map((s) => ({ ...s, categoryId: cat.id })))
-                    .returning();
-                results.push({ ...cat, subCategories: subs });
+            let catRecord;
+            
+            // Check if category already exists by name
+            const existingCatList = await db.select().from(categories).where(eq(categories.name, item.category.name as string));
+            
+            if (existingCatList.length > 0) {
+                catRecord = existingCatList[0];
             } else {
-                results.push(cat);
+                const [inserted] = await db.insert(categories).values({
+                    ...item.category,
+                    id: item.category.id || randomUUID()
+                }).returning();
+                catRecord = inserted;
+            }
+
+            if (catRecord && item.subs && item.subs.length > 0) {
+                const subsAttached = [];
+                for (const sub of item.subs) {
+                    const existingSubList = await db.select().from(subCategories).where(
+                        and(
+                            eq(subCategories.name, sub.name as string),
+                            eq(subCategories.categoryId, catRecord.id)
+                        )
+                    );
+                    
+                    if (existingSubList.length > 0) {
+                        subsAttached.push(existingSubList[0]);
+                    } else {
+                        const [insertedSub] = await db.insert(subCategories).values({
+                            ...sub,
+                            categoryId: catRecord.id,
+                            id: sub.id || randomUUID()
+                        }).returning();
+                        subsAttached.push(insertedSub);
+                    }
+                }
+                results.push({ ...catRecord, subCategories: subsAttached });
+            } else {
+                results.push(catRecord);
             }
         }
         return results;
