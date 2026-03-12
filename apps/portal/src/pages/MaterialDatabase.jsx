@@ -12,6 +12,7 @@ export default function MaterialDatabase() {
     const [materials, setMaterials] = useState([]);
     const [categories, setCategories] = useState([]);
     const [subCategories, setSubCategories] = useState([]);
+    const [isImporting, setIsImporting] = useState(false);
     const [excludedSuppliers, setExcludedSuppliers] = useState({});
     const [subcons, setSubcons] = useState([]);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -26,7 +27,12 @@ export default function MaterialDatabase() {
                 ]);
                 setMaterials(mats || []);
                 const catList = Array.isArray(cats) ? cats : (cats.categories || []);
-                const subList = Array.isArray(cats) ? [] : (cats.subCategories || []);
+                const subList = catList.reduce((acc, cat) => {
+                    if (cat.subCategories && Array.isArray(cat.subCategories)) {
+                        acc.push(...cat.subCategories);
+                    }
+                    return acc;
+                }, []);
                 setCategories(catList);
                 setSubCategories(subList);
                 setSubcons(subs || []);
@@ -269,176 +275,200 @@ export default function MaterialDatabase() {
     };
 
     const processImportedData = async (jsonData) => {
-        let addedMats = 0;
-        const newMaterials = [];
-        const skippedMats = [];
-        
-        let currentCategories = categories;
-        let currentSubCategories = subCategories;
-        
-        // 1. Pre-process and collect all unique categories and their subcategories
-        const uniqueCategoriesMap = new Map();
-
-        jsonData.forEach((row) => {
-            let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
-            let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
+        setIsImporting(true);
+        try {
+            let addedMats = 0;
+            const newMaterials = [];
+            const skippedMats = [];
             
-            if (category && category !== 'Uncategorized') {
-                if (!uniqueCategoriesMap.has(category)) {
-                    uniqueCategoriesMap.set(category, new Set());
-                }
-                if (subCategory && subCategory !== '-') {
-                    uniqueCategoriesMap.get(category).add(subCategory);
-                }
-            }
-        });
-
-        // 2. Auto-create any missing categories / subcategories synchronously BEFORE materials
-        if (uniqueCategoriesMap.size > 0) {
-            const categoriesPayload = [];
-            for (const [catName, subCatsSet] of uniqueCategoriesMap.entries()) {
-                const subCatsArray = Array.from(subCatsSet).map(subName => ({
-                    name: subName,
-                    code: subName.substring(0, 3).toUpperCase()
-                }));
-                
-                categoriesPayload.push({
-                    category: { name: catName },
-                    subs: subCatsArray
-                });
-            }
+            let currentCategories = categories;
+            let currentSubCategories = subCategories;
             
-            try {
-                // api.categories.import already wraps payload in { items }
-                await api.categories.import(categoriesPayload);
+            // 1. Pre-process and collect all unique categories and their subcategories
+            const uniqueCategoriesMap = new Map();
+
+            jsonData.forEach((row) => {
+                let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
+                let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
                 
-                // Refresh local state lists immediately
-                const catsData = await api.categories.list();
-                currentCategories = Array.isArray(catsData) ? catsData : (catsData.categories || []);
-                currentSubCategories = currentCategories.reduce((acc, cat) => {
-                    if (cat.subCategories && Array.isArray(cat.subCategories)) {
-                        acc.push(...cat.subCategories);
+                if (category && category !== 'Uncategorized') {
+                    if (!uniqueCategoriesMap.has(category)) {
+                        uniqueCategoriesMap.set(category, new Set());
                     }
-                    return acc;
-                }, []);
-                setCategories(currentCategories);
-                setSubCategories(currentSubCategories);
-            } catch (err) {
-                console.error("Failed to auto-create categories from import sync:", err);
-            }
-        }
-
-        jsonData.forEach((row, index) => {
-            const name = row['Nama Item'] || row['Nama Material'] || row['Nama'] || row.Name || row.name || row.Material || '';
-            let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
-            let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
-
-            if (category && category !== 'Uncategorized') {
-                const matchedCategory = currentCategories.find(c => c.name.toLowerCase() === category.toLowerCase());
-                if (matchedCategory) {
-                    category = matchedCategory.name;
-                }
-            }
-
-            if (subCategory && subCategory !== '-') {
-                const matchedSub = currentSubCategories.find(c => c.name.toLowerCase() === subCategory.toLowerCase());
-                if (matchedSub) {
-                    subCategory = matchedSub.name;
-                }
-            }
-
-            // Extract number from "Rp 15.000,00"
-            let rawPrice = row['Harga Satuan AHS'] || row['Harga AHS'] || row['Harga'] || row.Price || row.price || '0';
-            let cleanPriceStr = String(rawPrice).replace(/Rp/gi, '').replace(/\./g, '').replace(/,/g, '.').trim();
-            const price = Number(cleanPriceStr) || 0;
-
-            // Helper to find value regardless of case or trailing spaces in header
-            const findValue = (obj, possibleKeys) => {
-                const lowerKeys = possibleKeys.map(k => k.toLowerCase().trim());
-                for (const key in obj) {
-                    if (lowerKeys.includes(key.toLowerCase().trim())) {
-                        return obj[key];
+                    if (subCategory && subCategory !== '-') {
+                        uniqueCategoriesMap.get(category).add(subCategory);
                     }
                 }
-                return null;
-            };
-
-            // Read Unit and Conversions mapped from specific columns
-            // F: Base UoM, G: Standard Qty, H: Satandard UoM (or Standard UoM)
-            const stdUnit = findValue(row, ['satandard uom', 'standard uom', 'satuan standar', 'standard unit']) || 'Unit';
-            const rawBaseUnit = findValue(row, ['base uom', 'base unit', 'satuan dasar', 'satuan', 'unit']);
-            const baseUnit = rawBaseUnit || stdUnit;
-            const rawConvFactor = findValue(row, ['standard qty', 'kuantitas konversi', 'konversi', 'conversion', 'kuantitas standard uom']);
-
-            let hasConversion = false;
-            let conversionFactor = '';
-            let standardUnit = '';
-
-            if (rawConvFactor && stdUnit) {
-                const parsedFactor = Number(rawConvFactor);
-                if (!isNaN(parsedFactor) && parsedFactor > 0) {
-                    hasConversion = true;
-                    conversionFactor = parsedFactor;
-                    standardUnit = stdUnit;
-                }
-            }
-
-            if (!name) return; // Skip empty rows
-
-            // Prevent duplicate by checking existing materials + ones we just added to array
-            const isDuplicate = materials.some(m => m.name.toLowerCase() === name.toLowerCase()) ||
-                newMaterials.some(m => m.name.toLowerCase() === name.toLowerCase());
-
-            if (!isDuplicate) {
-                newMaterials.push({
-                    id: `IMP-${Date.now()}-${index}`,
-                    name,
-                    category,
-                    subCategory,
-                    price,
-                    ahsPrice: price,
-                    unit: baseUnit,
-                    hasConversion,
-                    conversionFactor,
-                    standardUnit,
-                    status: 'Active',
-                    lastUpdate: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-                    trend: 'flat',
-                    trendVal: '0%',
-                    plan: 'Imported'
-                });
-                addedMats++;
-            } else {
-                skippedMats.push(name);
-            }
-        });
-
-        let resultMessage = '';
-
-        if (addedMats > 0) {
-            setMaterials(prev => {
-                const combinedMats = [...newMaterials, ...prev];
-                const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(combinedMats);
-                // Import via API
-                try { api.materials.import(newMaterials); } catch (e) { console.error(e); }
-                return updatedMaterials;
             });
-            resultMessage += `Berhasil mengimpor! Menambahkan ${addedMats} Item Material baru.\n\n`;
-        } else {
-            resultMessage += "Tidak ada data materi baru yang ditambahkan.\n\n";
-        }
 
-        if (skippedMats.length > 0) {
-            resultMessage += `⚠️ ${skippedMats.length} Item dilewati karena sudah ada di database:\n- ${skippedMats.slice(0, 5).join('\n- ')}`;
-            if (skippedMats.length > 5) {
-                resultMessage += `\n...dan ${skippedMats.length - 5} lainnya.`;
+            // 2. Auto-create any missing categories / subcategories synchronously BEFORE materials
+            if (uniqueCategoriesMap.size > 0) {
+                const categoriesPayload = [];
+                for (const [catName, subCatsSet] of uniqueCategoriesMap.entries()) {
+                    const subCatsArray = Array.from(subCatsSet).map(subName => ({
+                        name: subName,
+                        code: subName.substring(0, 3).toUpperCase()
+                    }));
+                    
+                    categoriesPayload.push({
+                        category: { name: catName },
+                        subs: subCatsArray
+                    });
+                }
+                
+                try {
+                    // api.categories.import already wraps payload in { items }
+                    await api.categories.import(categoriesPayload);
+                    
+                    // Refresh local state lists immediately
+                    const catsData = await api.categories.list();
+                    currentCategories = Array.isArray(catsData) ? catsData : (catsData.categories || []);
+                    currentSubCategories = currentCategories.reduce((acc, cat) => {
+                        if (cat.subCategories && Array.isArray(cat.subCategories)) {
+                            acc.push(...cat.subCategories);
+                        }
+                        return acc;
+                    }, []);
+                    setCategories(currentCategories);
+                    setSubCategories(currentSubCategories);
+                } catch (err) {
+                    console.error("Failed to auto-create categories from import sync:", err);
+                }
             }
-        }
 
-        if (addedMats > 0 || skippedMats.length > 0) {
-            alert(resultMessage.trim());
-        } else {
-            alert("Format tidak dikenali, pastikan sheet Excel/Link sudah benar.");
+            jsonData.forEach((row, index) => {
+                const name = row['Nama Item'] || row['Nama Material'] || row['Nama'] || row.Name || row.name || row.Material || '';
+                let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
+                let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
+
+                // Match category name and resolve its ID
+                let categoryId = null;
+                if (category && category !== 'Uncategorized') {
+                    const matchedCategory = currentCategories.find(c => c.name.toLowerCase() === category.toLowerCase());
+                    if (matchedCategory) {
+                        category = matchedCategory.name;
+                        categoryId = matchedCategory.id;
+                    }
+                }
+
+                // Match subcategory name and resolve its ID
+                let subCategoryId = null;
+                if (subCategory && subCategory !== '-') {
+                    const matchedSub = currentSubCategories.find(c => c.name.toLowerCase() === subCategory.toLowerCase());
+                    if (matchedSub) {
+                        subCategory = matchedSub.name;
+                        subCategoryId = matchedSub.id;
+                    }
+                }
+
+                // Extract number from "Rp 15.000,00"
+                let rawPrice = row['Harga Satuan AHS'] || row['Harga AHS'] || row['Harga'] || row.Price || row.price || '0';
+                let cleanPriceStr = String(rawPrice).replace(/Rp/gi, '').replace(/\./g, '').replace(/,/g, '.').trim();
+                const price = Number(cleanPriceStr) || 0;
+
+                // Helper to find value regardless of case or trailing spaces in header
+                const findValue = (obj, possibleKeys) => {
+                    const lowerKeys = possibleKeys.map(k => k.toLowerCase().trim());
+                    for (const key in obj) {
+                        if (lowerKeys.includes(key.toLowerCase().trim())) {
+                            return obj[key];
+                        }
+                    }
+                    return null;
+                };
+
+                // Read Unit and Conversions mapped from specific columns
+                const stdUnit = findValue(row, ['satandard uom', 'standard uom', 'satuan standar', 'standard unit']) || 'Unit';
+                const rawBaseUnit = findValue(row, ['base uom', 'base unit', 'satuan dasar', 'satuan', 'unit']);
+                const baseUnit = rawBaseUnit || stdUnit;
+                const rawConvFactor = findValue(row, ['standard qty', 'kuantitas konversi', 'konversi', 'conversion', 'kuantitas standard uom']);
+
+                let conversionFactor = null;
+                let standardUnit = null;
+
+                if (rawConvFactor && stdUnit) {
+                    const parsedFactor = Number(rawConvFactor);
+                    if (!isNaN(parsedFactor) && parsedFactor > 0) {
+                        conversionFactor = String(parsedFactor);
+                        standardUnit = stdUnit;
+                    }
+                }
+
+                if (!name) return; // Skip empty rows
+
+                // Prevent duplicate by checking existing materials + ones we just added to array
+                const isDuplicate = materials.some(m => m.name.toLowerCase() === name.toLowerCase()) ||
+                    newMaterials.some(m => m.name.toLowerCase() === name.toLowerCase());
+
+                if (!isDuplicate) {
+                    newMaterials.push({
+                        id: `IMP-${Date.now()}-${index}`,
+                        name,
+                        category,
+                        categoryId,
+                        subCategory,
+                        subCategoryId,
+                        price,
+                        ahsPrice: price,
+                        unit: baseUnit,
+                        baseUnit,
+                        conversionFactor,
+                        standardUnit,
+                        status: 'Active',
+                        lastUpdate: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
+                        trend: 'flat',
+                        trendVal: '0%',
+                        plan: 'Imported'
+                    });
+                    addedMats++;
+                } else {
+                    skippedMats.push(name);
+                }
+            });
+
+            let resultMessage = '';
+
+            if (addedMats > 0) {
+                // Build final materials with updated prefixes
+                const combinedMats = [...newMaterials, ...materials];
+                const { updatedMaterials, hasChanges, oldToNewIdMap } = updateMaterialsWithNewPrefixes(combinedMats);
+
+                // Build the payload with the updated IDs for the API
+                const materialsForApi = newMaterials.map(m => {
+                    const finalId = oldToNewIdMap[m.id] || m.id;
+                    return { ...m, id: finalId };
+                });
+
+                // Save to API (properly awaited)
+                try {
+                    await api.materials.import(materialsForApi);
+                } catch (e) {
+                    console.error('Failed to import materials to API:', e);
+                }
+
+                setMaterials(updatedMaterials);
+                resultMessage += `Berhasil mengimpor! Menambahkan ${addedMats} Item Material baru.\n\n`;
+            } else {
+                resultMessage += "Tidak ada data materi baru yang ditambahkan.\n\n";
+            }
+
+            if (skippedMats.length > 0) {
+                resultMessage += `⚠️ ${skippedMats.length} Item dilewati karena sudah ada di database:\n- ${skippedMats.slice(0, 5).join('\n- ')}`;
+                if (skippedMats.length > 5) {
+                    resultMessage += `\n...dan ${skippedMats.length - 5} lainnya.`;
+                }
+            }
+
+            if (addedMats > 0 || skippedMats.length > 0) {
+                alert(resultMessage.trim());
+            } else {
+                alert("Format tidak dikenali, pastikan sheet Excel/Link sudah benar.");
+            }
+        } catch (err) {
+            console.error('Import error:', err);
+            alert('Terjadi kesalahan saat mengimpor: ' + err.message);
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -526,6 +556,20 @@ export default function MaterialDatabase() {
         <div className="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 font-display antialiased h-screen flex overflow-hidden">
 
             <Sidebar activePage="material" isMobileMenuOpen={isMobileMenuOpen} onCloseMobileMenu={() => setIsMobileMenuOpen(false)} />
+
+            {/* Import Loading Overlay */}
+            {isImporting && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-card-dark rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4 max-w-sm mx-4">
+                        <div className="relative">
+                            <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-700 rounded-full"></div>
+                            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full absolute top-0 left-0 animate-spin"></div>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Sedang Mengimpor...</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 text-center">Membuat kategori, sub-kategori, dan material baru. Mohon tunggu sebentar.</p>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative mr-0 lg:mr-[450px] transition-all duration-300">
