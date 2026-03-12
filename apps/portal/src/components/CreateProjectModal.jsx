@@ -262,6 +262,7 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                                         onChange={(val) => setClient(val)}
                                         placeholder="Pilih Klien..."
                                         options={clients.map(c => ({ value: c.name, label: c.name }))}
+                                        menuPlacement="top"
                                     />
                                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Klien belum terdaftar? <a className="text-primary hover:underline" href="#">Tambah Klien Baru</a></p>
                                 </div>
@@ -274,6 +275,7 @@ export default function CreateProjectModal({ isOpen, onClose }) {
                                         onChange={(val) => setPic(val)}
                                         placeholder="Pilih Penanggung Jawab..."
                                         options={pms.map(pm => ({ value: pm.name, label: pm.name }))}
+                                        menuPlacement="top"
                                     />
                                 </div>
                             </div>

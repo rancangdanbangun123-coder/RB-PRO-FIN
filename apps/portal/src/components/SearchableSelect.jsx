@@ -8,6 +8,7 @@ export default function SearchableSelect({
     disabled = false,
     className = '',
     renderOption,
+    menuPlacement = 'bottom',
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -66,7 +67,11 @@ export default function SearchableSelect({
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                <div className={`absolute z-50 w-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl overflow-hidden animate-in fade-in duration-150 ${
+                    menuPlacement === 'top' 
+                        ? 'bottom-[calc(100%+4px)] slide-in-from-bottom-1' 
+                        : 'top-[calc(100%+4px)] slide-in-from-top-1'
+                }`}>
                     {/* Search Input */}
                     <div className="p-2 border-b border-slate-100 dark:border-slate-700">
                         <div className="relative">
