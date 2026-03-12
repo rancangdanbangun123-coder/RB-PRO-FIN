@@ -237,12 +237,17 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
                         if (matchedCat) {
                             updated.categoryId = matchedCat.id.toString();
                             // Attempt to match subCat
-                            const matchedSub = subCategories.find(s => s.categoryId === matchedCat.id && s.name.toLowerCase() === material.subCategory?.toLowerCase());
+                            const matchedSub = subCategories.find(s => String(s.categoryId) === String(matchedCat.id) && s.name.toLowerCase() === material.subCategory?.toLowerCase());
                             if (matchedSub) {
                                 updated.subCategoryId = matchedSub.id.toString();
+                                updated.rawSubCategory = matchedSub.name;
                             } else {
                                 updated.subCategoryId = '';
+                                updated.rawSubCategory = material.subCategory || '';
                             }
+                        } else {
+                            updated.rawCategory = material.category || '';
+                            updated.rawSubCategory = material.subCategory || '';
                         }
                     }
                 }
@@ -437,8 +442,8 @@ export default function AddTransactionModal({ isOpen, onClose, selectedProjectNa
                                         ? subCategories.filter(s => String(s.categoryId) === String(item.categoryId))
                                         : [];
 
-                                    const categoryName = categories.find(c => String(c.id) === String(item.categoryId))?.name || '';
-                                    const subCategoryName = subCategories.find(s => String(s.id) === String(item.subCategoryId))?.name || '';
+                                    const categoryName = categories.find(c => String(c.id) === String(item.categoryId))?.name || item.rawCategory || '';
+                                    const subCategoryName = subCategories.find(s => String(s.id) === String(item.subCategoryId))?.name || item.rawSubCategory || '';
 
                                     return (
                                         <div key={item.id} className="relative bg-slate-50/50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
