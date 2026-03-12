@@ -687,7 +687,7 @@ export default function MaterialDatabase() {
                                             <td className="px-4 py-4 whitespace-nowrap">
                                                 {(() => {
                                                     const isCategoryDeleted = item.category && item.category !== 'Uncategorized' && item.category !== '-' && categories.length > 0 && !categories.some(c => c.name === item.category);
-                                                    const isSubDeleted = item.subCategory && item.subCategory !== '-' && subCategories.length > 0 && !subCategories.some(s => s.name === item.subCategory);
+                                                    const isSubDeleted = isCategoryDeleted || (item.subCategory && item.subCategory !== '-' && subCategories.length > 0 && !subCategories.some(s => s.name === item.subCategory));
 
                                                     return (
                                                         <>
@@ -701,7 +701,7 @@ export default function MaterialDatabase() {
                                                             </div>
                                                             <div className={`flex items-center gap-1.5 mt-0.5 ${isSubDeleted ? 'text-red-400 dark:text-red-500' : 'text-slate-500'}`}>
                                                                 {isSubDeleted && (
-                                                                    <span className="material-icons-round text-[12px]" title="Subkategori ini telah dihapus dari master data">error_outline</span>
+                                                                    <span className="material-icons-round text-[12px]" title="Subkategori ini telah dihapus atau kategori induk tidak ditemukan">error_outline</span>
                                                                 )}
                                                                 <span className="text-xs truncate max-w-[150px]" title={isSubDeleted ? "Subkategori tidak valid" : item.subCategory}>
                                                                     {isSubDeleted ? '(Belum Dialokasikan)' : item.subCategory}
