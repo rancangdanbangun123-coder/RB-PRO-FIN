@@ -78,57 +78,67 @@ export default function Subkontraktor() {
         setIsAddSubconModalOpen(true);
     };
 
-    const handleSaveSubcon = (subconData) => {
-        if (selectedSubcon && subconData.id === selectedSubcon.id) {
-            // Edit existing
-            const updatedSubcon = { ...selectedSubcon, ...subconData };
-            const updatedList = subcons.map(s => s.id === updatedSubcon.id ? updatedSubcon : s);
-            setSubcons(updatedList);
-            setSelectedSubcon(updatedSubcon);
-        } else {
-            // Add new
-            const currentYear = new Date().getFullYear();
-            const sequenceStr = String(subcons.length + 1).padStart(3, '0');
-            const newId = `SUB-${currentYear}-${sequenceStr}`;
+    const handleSaveSubcon = async (subconData) => {
+        try {
+            if (selectedSubcon && subconData.id === selectedSubcon.id) {
+                // Edit existing
+                const updatedSubcon = { ...selectedSubcon, ...subconData };
+                await api.subcontractors.update(updatedSubcon.id, updatedSubcon);
+                const updatedList = subcons.map(s => s.id === updatedSubcon.id ? updatedSubcon : s);
+                setSubcons(updatedList);
+                setSelectedSubcon(updatedSubcon);
+            } else {
+                // Add new
+                const currentYear = new Date().getFullYear();
+                const sequenceStr = String(subcons.length + 1).padStart(3, '0');
+                const newId = `SUB-${currentYear}-${sequenceStr}`;
 
-            const newSubcon = {
-                id: newId,
-                ...subconData,
-                status: 'Pending L1', // Approval Layer 1
-                suppliedMaterials: subconData.initialMaterials || [],
-                managers: [], // Initialize empty array to prevent crash
-                history: [], // Initialize empty array
-                totalSpend: 'Rp 0',
-                rating: 0,
-                logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(subconData.name)}&background=random`
-            };
-            const updatedList = [newSubcon, ...subcons];
-            setSubcons(updatedList);
+                const newSubcon = {
+                    id: newId,
+                    ...subconData,
+                    status: 'Pending L1', // Approval Layer 1
+                    suppliedMaterials: subconData.initialMaterials || [],
+                    managers: [], // Initialize empty array to prevent crash
+                    history: [], // Initialize empty array
+                    totalSpend: 'Rp 0',
+                    rating: 0,
+                    logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(subconData.name)}&background=random`
+                };
 
-            // Set default status to 'Excluded' for all starter materials
-            if (subconData.initialMaterials && subconData.initialMaterials.length > 0) {
-                setExclusions(prev => {
-                    const newExclusions = { ...prev };
-                    subconData.initialMaterials.forEach(item => {
-                        const matId = item.materialId;
-                        if (!newExclusions[matId]) {
-                            newExclusions[matId] = [];
-                        }
-                        // Add subcon ID to exclusion list if not already there
-                        if (!newExclusions[matId].includes(newSubcon.id)) {
-                            newExclusions[matId].push(newSubcon.id);
-                        }
+                const createdSubcon = await api.subcontractors.create(newSubcon);
+                const finalSubcon = { ...newSubcon, ...createdSubcon };
+
+                const updatedList = [finalSubcon, ...subcons];
+                setSubcons(updatedList);
+
+                // Set default status to 'Excluded' for all starter materials
+                if (subconData.initialMaterials && subconData.initialMaterials.length > 0) {
+                    setExclusions(prev => {
+                        const newExclusions = { ...prev };
+                        subconData.initialMaterials.forEach(item => {
+                            const matId = item.materialId;
+                            if (!newExclusions[matId]) {
+                                newExclusions[matId] = [];
+                            }
+                            // Add subcon ID to exclusion list if not already there
+                            if (!newExclusions[matId].includes(finalSubcon.id)) {
+                                newExclusions[matId].push(finalSubcon.id);
+                            }
+                        });
+                        return newExclusions;
                     });
-                    return newExclusions;
-                });
-            }
+                }
 
-            setSubconListTab('registration'); // Switch to registration tab to see new item
-            setSelectedSubcon(newSubcon);
+                setSubconListTab('registration'); // Switch to registration tab to see new item
+                setSelectedSubcon(finalSubcon);
+            }
+        } catch (error) {
+            console.error("Failed to save subcontractor:", error);
+            alert("Gagal menyimpan subkontraktor. Silakan coba lagi.");
         }
     };
 
-    const handleApproveSubcon = (e, subconId, currentStatus) => {
+    const handleApproveSubcon = async (e, subconId, currentStatus) => {
         e.stopPropagation(); // Prevent row click
 
         // Update logic: Pending L1 -> Pending L2 -> Active
@@ -136,15 +146,21 @@ export default function Subkontraktor() {
         if (currentStatus === 'Pending L1') newStatus = 'Pending L2';
         else if (currentStatus === 'Pending L2') newStatus = 'Active';
 
-        const updatedList = subcons.map(s =>
-            s.id === subconId ? { ...s, status: newStatus } : s
-        );
+        try {
+            await api.subcontractors.approve(subconId, newStatus);
+            
+            const updatedList = subcons.map(s =>
+                s.id === subconId ? { ...s, status: newStatus } : s
+            );
+            setSubcons(updatedList);
 
-        setSubcons(updatedList);
-
-        // Update selected subcon if it's the one being approved
-        if (selectedSubcon.id === subconId) {
-            setSelectedSubcon({ ...selectedSubcon, status: newStatus });
+            // Update selected subcon if it's the one being approved
+            if (selectedSubcon.id === subconId) {
+                setSelectedSubcon({ ...selectedSubcon, status: newStatus });
+            }
+        } catch (error) {
+            console.error("Failed to approve subcontractor:", error);
+            alert("Gagal memproses approval. Silakan coba lagi.");
         }
     };
 
@@ -158,19 +174,25 @@ export default function Subkontraktor() {
         setSelectedSubcon(updatedSubcon);
     };
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (!window.confirm('PERINGATAN: Tindakan ini tidak dapat dibatalkan. Subkontraktor akan dihapus secara permanen. Lanjutkan?')) return;
 
-        const updatedList = subcons.filter(s => s.id !== selectedSubcon.id);
-        setSubcons(updatedList);
+        try {
+            await api.subcontractors.remove(selectedSubcon.id);
+            const updatedList = subcons.filter(s => s.id !== selectedSubcon.id);
+            setSubcons(updatedList);
 
-        // Select an appropriate fallback
-        const currentActive = updatedList.filter(s => s.status === 'Active');
-        if (currentActive.length > 0) {
-            setSelectedSubcon(currentActive[0]);
-            setSubconListTab('directory');
-        } else {
-            setSelectedSubcon(updatedList[0] || null);
+            // Select an appropriate fallback
+            const currentActive = updatedList.filter(s => s.status === 'Active');
+            if (currentActive.length > 0) {
+                setSelectedSubcon(currentActive[0]);
+                setSubconListTab('directory');
+            } else {
+                setSelectedSubcon(updatedList[0] || null);
+            }
+        } catch (error) {
+            console.error("Failed to delete subcontractor:", error);
+            alert("Gagal menghapus subkontraktor. Silakan coba lagi.");
         }
     };
 
@@ -190,53 +212,63 @@ export default function Subkontraktor() {
         return true;
     });
 
-    const handleSaveSupply = (supplyData) => {
-        console.log("handleSaveSupply called with:", supplyData);
-        let updatedMaterials = [...(selectedSubcon.suppliedMaterials || [])];
-
-        if (editingSupply) {
-            // Update existing
-            updatedMaterials = updatedMaterials.map(item =>
-                item.materialId === supplyData.materialId ? { ...item, ...supplyData } : item
+    const handleSaveSupply = async (supplyData) => {
+        try {
+            let updatedMaterials = [...(selectedSubcon.suppliedMaterials || [])];
+    
+            if (editingSupply) {
+                // Update existing
+                await api.subcontractors.updateMaterial(selectedSubcon.id, supplyData.materialId, supplyData);
+                updatedMaterials = updatedMaterials.map(item =>
+                    item.materialId === supplyData.materialId ? { ...item, ...supplyData } : item
+                );
+            } else {
+                // Add new - Add to TOP of list for better visibility
+                await api.subcontractors.addMaterial(selectedSubcon.id, supplyData);
+                updatedMaterials = [supplyData, ...updatedMaterials];
+            }
+    
+            // Update local state
+            const updatedSubcon = {
+                ...selectedSubcon,
+                suppliedMaterials: updatedMaterials
+            };
+            setSelectedSubcon(updatedSubcon);
+    
+            // Update main subcons list
+            const updatedList = subcons.map(s =>
+                s.id === selectedSubcon.id ? updatedSubcon : s
             );
-        } else {
-            // Add new - Add to TOP of list for better visibility
-            updatedMaterials = [supplyData, ...updatedMaterials];
+            setSubcons(updatedList);
+        } catch (error) {
+            console.error("Failed to save supply:", error);
+            alert("Gagal menyimpan material. Silakan coba lagi.");
         }
-
-        console.log("Updated materials list:", updatedMaterials);
-
-        // Update local state
-        const updatedSubcon = {
-            ...selectedSubcon,
-            suppliedMaterials: updatedMaterials
-        };
-        setSelectedSubcon(updatedSubcon);
-
-        // Update main subcons list
-        const updatedList = subcons.map(s =>
-            s.id === selectedSubcon.id ? updatedSubcon : s
-        );
-        setSubcons(updatedList);
     };
 
-    const handleDeleteSupply = (materialId) => {
+    const handleDeleteSupply = async (materialId) => {
         if (!window.confirm('Apakah Anda yakin ingin menghapus material ini dari daftar?')) return;
 
-        const updatedMaterials = selectedSubcon.suppliedMaterials.filter(item => item.materialId !== materialId);
+        try {
+            await api.subcontractors.removeMaterial(selectedSubcon.id, materialId);
+            const updatedMaterials = selectedSubcon.suppliedMaterials.filter(item => item.materialId !== materialId);
 
-        // Update local state
-        const updatedSubcon = {
-            ...selectedSubcon,
-            suppliedMaterials: updatedMaterials
-        };
-        setSelectedSubcon(updatedSubcon);
+            // Update local state
+            const updatedSubcon = {
+                ...selectedSubcon,
+                suppliedMaterials: updatedMaterials
+            };
+            setSelectedSubcon(updatedSubcon);
 
-        // Update main subcons list
-        const updatedList = subcons.map(s =>
-            s.id === selectedSubcon.id ? updatedSubcon : s
-        );
-        setSubcons(updatedList);
+            // Update main subcons list
+            const updatedList = subcons.map(s =>
+                s.id === selectedSubcon.id ? updatedSubcon : s
+            );
+            setSubcons(updatedList);
+        } catch (error) {
+            console.error("Failed to delete supply:", error);
+            alert("Gagal menghapus material. Silakan coba lagi.");
+        }
     };
 
     return (
