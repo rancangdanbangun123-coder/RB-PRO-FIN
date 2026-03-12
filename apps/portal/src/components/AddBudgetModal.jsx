@@ -109,11 +109,25 @@ export default function AddBudgetModal({ isOpen, onClose, onSave, initialData })
             setFormData(prev => {
                 const qty = parseFloat(prev.qtyTotal) || 0;
                 const price = parseFloat(selectedMat.ahsPrice || selectedMat.price) || 0;
+
+                let finalCategory = prev.category;
+                let finalSubCategory = prev.subCategory;
+                
+                if (selectedMat.category) {
+                    const matchedCat = categories.find(c => c.name.toLowerCase() === selectedMat.category.toLowerCase());
+                    finalCategory = matchedCat ? matchedCat.name : selectedMat.category;
+                }
+
+                if (selectedMat.subCategory) {
+                    const matchedSub = subCategories.find(s => s.name.toLowerCase() === selectedMat.subCategory.toLowerCase());
+                    finalSubCategory = matchedSub ? matchedSub.name : selectedMat.subCategory;
+                }
+
                 return {
                     ...prev,
                     name: materialName,
-                    category: selectedMat.category || prev.category,
-                    subCategory: selectedMat.subCategory || prev.subCategory,
+                    category: finalCategory,
+                    subCategory: finalSubCategory,
                     qtyUnit: selectedMat.unit || prev.qtyUnit,
                     ahsPrice: price,
                     totalBudget: String(Math.round(qty * price))
