@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { MATERIAL_DATABASE } from '../data/materialData';
+import React, { useState, useEffect, useMemo } from 'react';
+import { api } from '../lib/api';
 import { projects as PROJECT_DATA } from '../data/projectData';
 
 export default function LaporanProyek({ selectedProjectId = 'all' }) {
@@ -13,9 +13,20 @@ export default function LaporanProyek({ selectedProjectId = 'all' }) {
         return project ? project.name : 'Proyek Tidak Ditemukan';
     }, [selectedProjectId]);
 
-    // Generate report data by combining MATERIAL_DATABASE with mocked inventory/usage data
+    const [materials, setMaterials] = useState([]);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const mats = await api.materials.list();
+                setMaterials((mats || []).filter(m => !['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase())));
+            } catch (err) { console.error(err); }
+        })();
+    }, []);
+
+    // Generate report data by combining fetched materials with mocked inventory/usage data
     const reportData = useMemo(() => {
-        return MATERIAL_DATABASE.map(item => {
+        return materials.map(item => {
             // Generate a stable random inventory based on item ID char codes
             const seed = item.id.charCodeAt(0) + (item.id.charCodeAt(item.id.length - 1) || 0) + item.price;
             const inventoryQty = (seed % 500) + 50;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MATERIAL_DATABASE } from '../data/materialData';
+import { api } from '../lib/api';
 import SearchableSelect from './SearchableSelect';
 
 export default function AddSupplyModal({ isOpen, onClose, onSave, existingMaterialIds = [], initialData = null }) {
@@ -21,12 +21,17 @@ export default function AddSupplyModal({ isOpen, onClose, onSave, existingMateri
             setIsVisible(true);
             setTimeout(() => setAnimateIn(true), 10);
 
-            // Filter out materials that are already supplied by this subcon
-            // BUT if editing, include the current material
-            const filtered = MATERIAL_DATABASE.filter(m =>
-                !existingMaterialIds.includes(m.id) || (initialData && m.id === initialData.materialId)
-            );
-            setAvailableMaterials(filtered);
+            (async () => {
+                try {
+                    const mats = await api.materials.list();
+                    const filtered = (mats || []).filter(m => {
+                        const isInactive = ['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase());
+                        if (isInactive) return false;
+                        return !existingMaterialIds.includes(m.id) || (initialData && m.id === initialData.materialId);
+                    });
+                    setAvailableMaterials(filtered);
+                } catch (err) { console.error(err); }
+            })();
 
             if (initialData) {
                 setFormData({
