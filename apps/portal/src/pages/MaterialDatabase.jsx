@@ -275,8 +275,22 @@ export default function MaterialDatabase() {
 
         jsonData.forEach((row, index) => {
             const name = row['Nama Item'] || row['Nama Material'] || row['Nama'] || row.Name || row.name || row.Material || '';
-            const category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
-            const subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
+            let category = row['Kategori'] || row.Category || row.KATEGORI || 'Uncategorized';
+            let subCategory = row['Subkategori'] || row['Sub-kategori'] || row.SubCategory || row.Subcategory || '-';
+
+            if (category && category !== 'Uncategorized') {
+                const matchedCategory = categories.find(c => c.name.toLowerCase() === category.toLowerCase());
+                if (matchedCategory) {
+                    category = matchedCategory.name;
+                }
+            }
+
+            if (subCategory && subCategory !== '-') {
+                const matchedSub = subCategories.find(c => c.name.toLowerCase() === subCategory.toLowerCase());
+                if (matchedSub) {
+                    subCategory = matchedSub.name;
+                }
+            }
 
             // Extract number from "Rp 15.000,00"
             let rawPrice = row['Harga Satuan AHS'] || row['Harga AHS'] || row['Harga'] || row.Price || row.price || '0';
