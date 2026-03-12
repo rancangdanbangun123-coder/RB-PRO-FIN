@@ -309,8 +309,8 @@ export default function MaterialDatabase() {
             }
             
             try {
-                // The API actually expects { items: [...] } so we wrap it
-                await api.categories.import({ items: categoriesPayload });
+                // api.categories.import already wraps payload in { items }
+                await api.categories.import(categoriesPayload);
                 
                 // Refresh local state lists immediately
                 const catsData = await api.categories.list();
