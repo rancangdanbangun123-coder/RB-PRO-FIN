@@ -14,33 +14,15 @@ import HistoryModal from '../components/HistoryModal';
 import Sidebar from '../components/Sidebar';
 
 const initialData = {
-    items: {
-        'pr-1024': { id: 'pr-1024', code: '#PR-1024', type: 'Material', project: '113 - Ciwaruga', title: 'Semen Portland 50kg', vol: '200 Sak', est: 'Rp 14.000.000', urgent: true, userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRA8PN32cYatarc3DFYYGtEdd7d8g1OhWOadk5qmzUQEyT55b89oCprpKrj1fYEpcGMFj_xFLht0-cnWMOEqTcTSgNLyLpwGHiG2UYd8dyaTQYmsoexJ0HCSZRM07gaI_s49EYJWK2Rmayb87_qUsVCEiTiKOf6BuI9Zz-bDkv2fpvEWT4GbtdIZPqlHUux-4tTXsrd4xwYlU7fsQmYxO1oLNCyx0GVOflcmzl93vt2SIrpmptbJUUOPBrp-yhhYh6q026UpfJwgF8', stage: 'pr' },
-        'pr-1025': { id: 'pr-1025', code: '#PR-1025', type: 'Material', project: '116 - Pesona Bali', title: 'Besi Ulir 13 Grade Full', vol: '100 Btg', est: 'Rp 12.000.000', time: '2h ago', userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB6VFjMf9UijAOWkBnm943BZTmxuX-wYpJj3TUxdBMWJcGMdaBbGcUVnohROt96AHbU8vKlRgrkuxAV0MS2zGl0NofsISDzmy5346NgQ3KHt34rn7kX3D8VbEDWDf073Vi2AhurWMPhtcjeAeCoLv9eNFaiERq1ql9xF5ZGTZdrqviSEqBQAC1XBn2D9j5KQbgRfnz2zgjMiibFDCQdKo3tw58NRHLB8ftNV2Q6W0tanHixzq9UlZZ8k6JERhI9NqvemV15ITQp2P8', stage: 'pr' },
-        'po-0012': { id: 'po-0012', code: '#PO-0012', type: 'Material', project: '113 - Ciwaruga', title: 'Pasir Beton Lumajang', qty: '50 M3', total: 'Rp 14.000.000', store: 'PT Semen Nusantara', eta: '24 Okt 2023', userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBL9yO1l8gh2O_AWoqxXD9RrbFx2B9Nt2eHepBkqK_rGynnAZ-sxPUTa-rnY3d13g19yEIfmom1xMpmbcu7u-V-0TRcA_OgzMkGV543BTs0bim_ZuQ58H4NCHV01Ik83_L058QC4Ki0D0Ew35FCigRp97qsPkoWfRtAvp1SAErGtUAIgZIIW9_KiLxipAfiRfTiG7NTPdDZQpMJlhv8RpqA_3tv5a3TH-wk8iE-9AlYzRijxj4uC0E-HkSxu4nK1xLS6vDZE6IerL6r', stage: 'po' },
-        'inv-993': {
-            id: 'inv-993', code: '#INV-993', type: 'Material', project: '113 - Ciwaruga', title: 'Wiremesh M8', vol: '500 Lembar', total: 'Rp 325.000.000', status: 'Dibayar Sebagian', bills: [
-                { id: 1, label: 'Tagihan 1', amount: 'Rp 200.000.000', due: '2023-11-01', status: 'Lunas' },
-                { id: 2, label: 'Tagihan 2', amount: 'Rp 125.000.000', due: '2023-12-01', status: 'Unpaid' },
-            ], userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuATwKZSAYvfPNu-FPVflOnemqQBDAyH5PiXUbvVpq-zxo9BeumCFlbxs1i3eifTRE6YVngrLI1bVt0DP3O-51pM5pY0nVdJmYetS6HL59MW-axqcnCFCHsrnI15QBOmIPaO7y3Bsgnm6K7xAQG0P7eAiR2azqjQ0Fxy2Hi1FGA-OWnBw6Rmj9p3CNe21qY1yI0oooEDZgnDxD2oUdVk0k9x8Rj9GDg2iGz2RSa5U0WZTQMi62aDBp70hpRgbSdeYoxr5_jRgTLxomwC', stage: 'invoice'
-        },
-        'inv-998': {
-            id: 'inv-998', code: '#INV-998', type: 'Material', project: '116 - Pesona Bali', title: 'Kabel NYM 3x2.5mm', vol: '1000 Meter', total: 'Rp 15.000.000', status: 'Unpaid', bills: [
-                { id: 1, label: 'Tagihan 1', amount: 'Rp 15.000.000', due: '2023-11-20', status: 'Unpaid' },
-            ], userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC_q8HhKA6LRO_ctAXqS3RASWeH0JCaOy9Hun-FRn2SZkdpK2Fa0iQdk5i6EcPV2fqcX2on3swESMZZIycuMK9T0RxzGrxd5WjahGWlFAf0KzEGt1MFlHZgMCIdJ3zQlh4L56GC2bjpfyCHaz0NpYrKkFpWsRXtN7Ie2XJFZSGw2X2FD5pwjfD4gIbfVXy3hINGeFpGIyEsNq_Vo0D1-gFceQNMfCwdW_TXQETpPGM5wKvlsAR7R8W36uLgSHzzFqhDKxNerxN9WpKS', stage: 'invoice'
-        },
-        'do-3321': { id: 'do-3321', code: '#DO-3321', type: 'Material', project: 'On Site', title: 'Pipa PVC AW 4"', vol: '40 Btg', userAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAeb81wSA1MQlXU2cOtpyoOls10PmmuCc0_6Rf6Y0sYofe_tnYFPRc4ESaHPi-09r3ikP8mKuMesVSUtjk_QP87Zu6qDj1qtcIW8J3hseXZArE6UvL1G_8k_roOEVLddL4M56ieRmOLUWDUYQzuDQkdqj3aqvMVOCpGZJCFSzz4dMpMlQzZsbRrBL6r5yAzB66Lmt_vJMnmLrO4ZiXJlhMnY0MmSG_y6sPostPjOsjhj-39RAhJnGoliuSRhkwgpXQ7sGlekAhDbMO1', recv: 'Pak Mandor', checklist: { physical: true, doc: false }, stage: 'do' },
-        'comp-002': { id: 'comp-002', code: '#COMP-002', type: 'Material', title: 'Saklar Ganda Panasonic', vol: '100 Pcs', total: 'Rp 2.500.000', done: true, stage: 'done' },
-        'comp-001': { id: 'comp-001', code: '#COMP-001', type: 'Material', title: 'Besi Polos 8 KS', vol: '500 Btg', total: 'Rp 29.000.000', done: true, stage: 'done' },
-    },
+    items: {},
     columns: {
-        'pr': { id: 'pr', title: 'PR (Permintaan)', itemIds: ['pr-1024', 'pr-1025'], color: 'slate', dotColor: 'bg-slate-400' },
+        'pr': { id: 'pr', title: 'PR (Permintaan)', itemIds: [], color: 'slate', dotColor: 'bg-slate-400' },
         'approval': { id: 'approval', title: 'Approval PR', itemIds: [], color: 'blue', dotColor: 'bg-blue-500' },
-        'po': { id: 'po', title: 'PO (Pesanan)', itemIds: ['po-0012'], color: 'primary', dotColor: 'bg-primary' },
-        'invoice': { id: 'invoice', title: 'Invoice', itemIds: ['inv-993', 'inv-998'], color: 'orange', dotColor: 'bg-orange-500' },
-        'do': { id: 'do', title: 'DO (Diterima)', itemIds: ['do-3321'], color: 'teal', dotColor: 'bg-teal-400' },
+        'po': { id: 'po', title: 'PO (Pesanan)', itemIds: [], color: 'primary', dotColor: 'bg-primary' },
+        'invoice': { id: 'invoice', title: 'Invoice', itemIds: [], color: 'orange', dotColor: 'bg-orange-500' },
+        'do': { id: 'do', title: 'DO (Diterima)', itemIds: [], color: 'teal', dotColor: 'bg-teal-400' },
         'evaluation': { id: 'evaluation', title: 'Evaluasi', itemIds: [], color: 'yellow', dotColor: 'bg-yellow-400' },
-        'done': { id: 'done', title: 'Selesai', itemIds: ['comp-002', 'comp-001'], color: 'green', dotColor: 'bg-green-500' },
+        'done': { id: 'done', title: 'Selesai', itemIds: [], color: 'green', dotColor: 'bg-green-500' },
     },
     columnOrder: ['pr', 'approval', 'po', 'invoice', 'do', 'evaluation', 'done']
 };
@@ -666,18 +648,6 @@ export default function Procurement() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <button
-                            onClick={() => {
-                                if (window.confirm("Peringatan: Reset papan akan mengembalikan semua data ke versi bawaan demo (mock data) dan menghapus perubahan Anda. Lanjutkan?")) {
-                                    setData(initialData);
-                                }
-                            }}
-                            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 dark:bg-surface-dark-lighter dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            title="Reset Papan ke Data Awal"
-                        >
-                            <span className="material-icons-round text-[18px]">restore</span>
-                            <span className="hidden sm:inline">Reset Papan</span>
-                        </button>
                         <button className="flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-card-dark transition-colors relative" title="Notifikasi">
                             <span className="material-icons-round text-[20px]">notifications</span>
                             <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-background-dark"></span>
