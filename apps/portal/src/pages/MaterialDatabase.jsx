@@ -315,7 +315,12 @@ export default function MaterialDatabase() {
                 // Refresh local state lists immediately
                 const catsData = await api.categories.list();
                 currentCategories = Array.isArray(catsData) ? catsData : (catsData.categories || []);
-                currentSubCategories = Array.isArray(catsData) ? [] : (catsData.subCategories || []);
+                currentSubCategories = currentCategories.reduce((acc, cat) => {
+                    if (cat.subCategories && Array.isArray(cat.subCategories)) {
+                        acc.push(...cat.subCategories);
+                    }
+                    return acc;
+                }, []);
                 setCategories(currentCategories);
                 setSubCategories(currentSubCategories);
             } catch (err) {
