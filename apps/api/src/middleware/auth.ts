@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { auth } from '../auth/index.js';
 import { db } from '../db/index.js';
 import { rolePermissions } from '../db/schema/index.js';
+import { ALL_PERMISSION_KEYS } from '../constants/permissions.js';
 import { eq } from 'drizzle-orm';
 
 // Type for the user attached to context
@@ -47,7 +48,11 @@ export const requireAuth = createMiddleware<{
     const permKeys = perms.map((p) => p.key);
 
     c.set('user', user);
-    c.set('permissions', permKeys);
+    if (user.role === 'Admin') {
+        c.set('permissions', ALL_PERMISSION_KEYS.map((k) => k.key));
+    } else {
+        c.set('permissions', permKeys);
+    }
 
     await next();
 });

@@ -56,6 +56,8 @@ export default function RoleManagement() {
         // No longer needed: AuthContext handles 'rolePermissionsUpdated' event synchronization
     }, []);
 
+    const getRoleIdFromName = (name) => name.toLowerCase().replace(/\s+/g, '_');
+
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3000);
@@ -88,7 +90,13 @@ export default function RoleManagement() {
             ? current.filter(p => p !== permKey)
             : [...current, permKey];
         const newPerms = { ...rolePerms, [roleName]: updated };
-        await saveRolePermissions(newPerms);
+        try {
+            await api.permissions.updateRole(getRoleIdFromName(roleName), updated);
+            await saveRolePermissions(newPerms);
+        } catch (err) {
+            showToast('Gagal menyimpan wewenang', 'error');
+            console.error(err);
+        }
     };
 
     const toggleGroup = async (roleName, groupName) => {
@@ -109,7 +117,13 @@ export default function RoleManagement() {
             updated = [...current, ...toAdd];
         }
         const newPerms = { ...rolePerms, [roleName]: updated };
-        await saveRolePermissions(newPerms);
+        try {
+            await api.permissions.updateRole(getRoleIdFromName(roleName), updated);
+            await saveRolePermissions(newPerms);
+        } catch (err) {
+            showToast('Gagal menyimpan wewenang', 'error');
+            console.error(err);
+        }
     };
 
     const handleAddRole = async () => {
@@ -119,12 +133,18 @@ export default function RoleManagement() {
             showToast('Role sudah ada', 'error');
             return;
         }
-        const newPerms = { ...rolePerms, [trimmed]: ['view_proyek'] };
-        await saveRolePermissions(newPerms);
-        setNewRoleName('');
-        setIsAddingRole(false);
-        setExpandedRole(trimmed);
-        showToast(`Role "${trimmed}" berhasil dibuat`);
+        try {
+            await api.permissions.createRole({ id: getRoleIdFromName(trimmed), name: trimmed, permissions: ['view_proyek'] });
+            const newPerms = { ...rolePerms, [trimmed]: ['view_proyek'] };
+            await saveRolePermissions(newPerms);
+            setNewRoleName('');
+            setIsAddingRole(false);
+            setExpandedRole(trimmed);
+            showToast(`Role "${trimmed}" berhasil dibuat`);
+        } catch (err) {
+            showToast('Gagal membuat role', 'error');
+            console.error(err);
+        }
     };
 
     const handleDeleteRole = async (roleName) => {
@@ -150,7 +170,7 @@ export default function RoleManagement() {
         }
 
         // Remove custom role via API if applicable
-        try { await api.permissions.deleteRole(roleName); } catch (e) { /* may not be a custom role */ }
+        try { await api.permissions.deleteRole(getRoleIdFromName(roleName)); } catch (e) { console.error('Delete role err', e); }
 
         const { [roleName]: _, ...rest } = rolePerms;
         await saveRolePermissions(rest);

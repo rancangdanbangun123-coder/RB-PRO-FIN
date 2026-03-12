@@ -5,6 +5,7 @@ export const ALL_PERMISSION_KEYS = [
     { key: 'create_user', label: 'Tambah Pengguna', group: 'Pengguna' },
     { key: 'edit_user', label: 'Edit Pengguna', group: 'Pengguna' },
     { key: 'delete_user', label: 'Hapus Pengguna', group: 'Pengguna' },
+    { key: 'approve_user', label: 'Persetujuan Pengguna', group: 'Pengguna' },
     { key: 'manage_roles', label: 'Kelola Role', group: 'Pengguna' },
     // ── Proyek ──
     { key: 'view_proyek', label: 'Lihat Proyek', group: 'Proyek' },

@@ -136,6 +136,10 @@ export function AuthProvider({ children }) {
             for (const role of roles) {
                 rolePerms[role.name] = (role.permissions || []).map(p => p.permissionKey);
             }
+            
+            // Explicitly ensure 'Admin' role gets all permissions regardless of database state
+            rolePerms['Admin'] = [...ALL_PERM_KEYS];
+            
             setLivePermissions(rolePerms);
             localStorage.setItem('rolePermissions', JSON.stringify(rolePerms));
         } catch (err) {

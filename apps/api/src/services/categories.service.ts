@@ -1,6 +1,7 @@
 import { db } from '../db/index.js';
 import { categories, subCategories, materials } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 
 export const categoriesService = {
     async findAll() {
@@ -17,7 +18,10 @@ export const categoriesService = {
     },
 
     async create(data: typeof categories.$inferInsert) {
-        const [created] = await db.insert(categories).values(data).returning();
+        const [created] = await db.insert(categories).values({
+            ...data,
+            id: data.id || randomUUID(),
+        }).returning();
         return created;
     },
 
