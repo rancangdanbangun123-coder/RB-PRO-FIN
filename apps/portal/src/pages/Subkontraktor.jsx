@@ -36,7 +36,7 @@ export default function Subkontraktor() {
                 setSubcons(subs || []);
                 setTransactions(trxs || []);
                 setProjectsList(projs || []);
-                setMaterialsList(mats || []);
+                setMaterialsList((mats || []).filter(m => m.status !== 'Inactive'));
                 if (subs && subs.length > 0) setSelectedSubcon(subs[0]);
             } catch (err) { console.error('Failed to load subcontractor data:', err); }
         })();

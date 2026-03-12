@@ -41,7 +41,7 @@ export default function AddBudgetModal({ isOpen, onClose, onSave, initialData })
 
                     setCategories(finalCats);
                     setSubCategories(subList);
-                    setMaterials(mats || []);
+                    setMaterials((mats || []).filter(m => m.status !== 'Inactive'));
 
                     if (initialData) {
                         setFormData({

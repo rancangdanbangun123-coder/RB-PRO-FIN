@@ -16,7 +16,7 @@ export default function SisaMaterialTab() {
                     api.materials.list(),
                     api.projects.list(),
                 ]);
-                setMaterials(mats || []);
+                setMaterials((mats || []).filter(m => m.status !== 'Inactive'));
                 setProjectsList(projs || []);
                 // TODO: load sisa materials from API when endpoint exists
                 // For now, start with empty array

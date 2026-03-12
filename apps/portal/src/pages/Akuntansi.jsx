@@ -37,7 +37,7 @@ export default function Akuntansi() {
                 setCategories(catList);
                 setSubCategories(subList);
                 setAllTransactions(trxs || []);
-                setMaterials(mats || []);
+                setMaterials((mats || []).filter(m => m.status !== 'Inactive'));
                 setProjectsList(projs || []);
             } catch (err) { console.error('Failed to load accounting data:', err); }
         })();
