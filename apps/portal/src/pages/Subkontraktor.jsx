@@ -93,20 +93,39 @@ export default function Subkontraktor() {
                 const sequenceStr = String(subcons.length + 1).padStart(3, '0');
                 const newId = `SUB-${currentYear}-${sequenceStr}`;
 
-                const newSubcon = {
+                const subconPayload = {
                     id: newId,
-                    ...subconData,
+                    name: subconData.name || '',
+                    type: subconData.type || '',
+                    address: subconData.address || '',
+                    pic: subconData.pic || '',
+                    phone: subconData.phone || '',
+                    email: subconData.email || '',
                     status: 'Pending L1', // Approval Layer 1
-                    suppliedMaterials: subconData.initialMaterials || [],
-                    managers: [], // Initialize empty array to prevent crash
-                    history: [], // Initialize empty array
-                    totalSpend: 'Rp 0',
-                    rating: 0,
+                    totalSpend: 0,
+                    rating: '0',
                     logo: `https://ui-avatars.com/api/?name=${encodeURIComponent(subconData.name)}&background=random`
                 };
 
-                const createdSubcon = await api.subcontractors.create(newSubcon);
-                const finalSubcon = { ...newSubcon, ...createdSubcon };
+                const createdSubcon = await api.subcontractors.create(subconPayload);
+                
+                // Add initial starter materials to backend
+                if (subconData.initialMaterials && subconData.initialMaterials.length > 0) {
+                    for (const mat of subconData.initialMaterials) {
+                        try {
+                            await api.subcontractors.addMaterial(newId, mat);
+                        } catch (e) { console.error("Failed to add initial material:", e); }
+                    }
+                }
+
+                // Final object for local UI state
+                const finalSubcon = {
+                    ...createdSubcon,
+                    suppliedMaterials: subconData.initialMaterials || [],
+                    managers: [],
+                    history: [],
+                    totalSpend: 'Rp 0' // keeping ui format
+                };
 
                 const updatedList = [finalSubcon, ...subcons];
                 setSubcons(updatedList);
