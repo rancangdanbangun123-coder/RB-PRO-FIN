@@ -74,7 +74,7 @@ export default function AddBudgetModal({ isOpen, onClose, onSave, initialData })
     }, [initialData, isOpen]);
 
     // Calculate available subCategories for the current selected category
-    const currentCategoryObj = categories.find(c => c.name === formData.category) || categories[0];
+    const currentCategoryObj = categories.find(c => c.name.toLowerCase() === formData.category.toLowerCase()) || categories[0];
     const availableSubs = currentCategoryObj
         ? subCategories.filter(s => String(s.categoryId) === String(currentCategoryObj.id))
         : [];
@@ -87,7 +87,7 @@ export default function AddBudgetModal({ isOpen, onClose, onSave, initialData })
             const updated = { ...prev, [name]: value };
 
             if (name === 'category') {
-                const newCatObj = categories.find(c => c.name === value);
+                const newCatObj = categories.find(c => c.name.toLowerCase() === value.toLowerCase());
                 const newSubs = newCatObj ? subCategories.filter(s => String(s.categoryId) === String(newCatObj.id)) : [];
                 updated.subCategory = newSubs.length > 0 ? newSubs[0].name : 'Lainnya';
             }
