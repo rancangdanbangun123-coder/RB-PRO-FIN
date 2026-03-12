@@ -28,7 +28,7 @@ export default function AddSubconModal({ isOpen, onClose, onSave, initialData })
             (async () => {
                 try {
                     const mats = await api.materials.list();
-                    setMaterialDatabase((mats || []).filter(m => m.status !== 'Inactive'));
+                    setMaterialDatabase((mats || []).filter(m => !['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase())));
                 } catch (e) { console.error(e); }
             })();
             if (initialData) {

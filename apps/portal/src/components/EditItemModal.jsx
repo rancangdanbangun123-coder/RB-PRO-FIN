@@ -105,7 +105,7 @@ export default function EditItemModal({ isOpen, onClose, item, onSubmit }) {
                         api.materials.list(),
                         api.subcontractors.list(),
                     ]);
-                    setMaterialDatabase((mats || []).filter(m => m.status !== 'Inactive'));
+                    setMaterialDatabase((mats || []).filter(m => !['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase())));
                     // Update vendor options for RFQ phase fields dynamically 
                 } catch (e) { console.error('Failed to load data for EditItemModal:', e); }
             })();

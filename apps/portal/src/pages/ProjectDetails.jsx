@@ -154,7 +154,7 @@ export default function ProjectDetails() {
                 setBudgetItems(budgets || []);
                 setProjectTransactions(txns || []);
                 setCategories(cats || []);
-                setMaterials((mats || []).filter(m => m.status !== 'Inactive'));
+                setMaterials((mats || []).filter(m => !['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase())));
             } catch (err) {
                 console.error('Failed to load project:', err);
             }

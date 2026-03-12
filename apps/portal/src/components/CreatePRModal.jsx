@@ -25,7 +25,7 @@ export default function CreatePRModal({ isOpen, onClose, projects, onSubmit }) {
                         api.materials.list(),
                         api.projects.list(),
                     ]);
-                    setMaterialDatabase((mats || []).filter(m => m.status !== 'Inactive'));
+                    setMaterialDatabase((mats || []).filter(m => !['inactive', 'tidak aktif'].includes((m.status || '').toLowerCase())));
 
                     const activeProjects = (projs || []).filter(p => p.status !== 'Completed');
                     if (activeProjects.length > 0) {
